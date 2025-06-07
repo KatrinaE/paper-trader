@@ -187,20 +187,22 @@ def main():
                 event = Prompt.ask("\nPress a key (a/r/q)")
                 
                 if event.lower() == "a":
+                    # First add the instrument
                     add_instrument()
-                    # Update layout after adding instrument
-                    data = get_market_data()
-                    if data:
-                        update_layout(layout, data)
-                        renderable = layout
+                    
+                    # Create a new layout with updated data
+                    new_layout = create_layout(get_market_data())
+                    if new_layout:
+                        renderable = new_layout
                         live.update(renderable, refresh=True)
                 elif event.lower() == "r":
+                    # First remove the instrument
                     remove_instrument()
-                    # Update layout after removing instrument
-                    data = get_market_data()
-                    if data:
-                        update_layout(layout, data)
-                        renderable = layout
+                    
+                    # Create a new layout with updated data
+                    new_layout = create_layout(get_market_data())
+                    if new_layout:
+                        renderable = new_layout
                         live.update(renderable, refresh=True)
                 elif event.lower() == "q":
                     console.print("\n[green]Exiting...[/green]")
@@ -209,9 +211,10 @@ def main():
                 # Update the existing layout with new data
                 data = get_market_data()
                 if data:
-                    update_layout(layout, data)
-                    renderable = layout
-                    live.update(renderable, refresh=True)
+                    new_layout = create_layout(data)
+                    if new_layout:
+                        renderable = new_layout
+                        live.update(renderable, refresh=True)
                 
             except KeyboardInterrupt:
                 console.print("\n[green]Exiting...[/green]")
