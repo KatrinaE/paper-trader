@@ -87,10 +87,14 @@ def create_table(data):
     table.add_column("Bid", style="green")
     table.add_column("Ask", style="red")
     
-    for instrument in INSTRUMENTS:
-        bid = data.get(f"{instrument}_bid", "N/A")
-        ask = data.get(f"{instrument}_ask", "N/A")
-        table.add_row(instrument, str(bid), str(ask))
+    # Add empty row if no data
+    if not data:
+        table.add_row("No data available", "N/A", "N/A")
+    else:
+        for instrument in INSTRUMENTS:
+            bid = data.get(f"{instrument}_bid", "N/A")
+            ask = data.get(f"{instrument}_ask", "N/A")
+            table.add_row(instrument, str(bid), str(ask))
     
     return table
 
@@ -115,10 +119,15 @@ def update_layout(layout, data):
     """Update the existing layout with new data"""
     # Update the market table
     layout.market_table.rows.clear()
-    for instrument in INSTRUMENTS:
-        bid = data.get(f"{instrument}_bid", "N/A")
-        ask = data.get(f"{instrument}_ask", "N/A")
-        layout.market_table.add_row(instrument, str(bid), str(ask))
+    
+    # Add empty row if no data
+    if not data:
+        layout.market_table.add_row("No data available", "N/A", "N/A")
+    else:
+        for instrument in INSTRUMENTS:
+            bid = data.get(f"{instrument}_bid", "N/A")
+            ask = data.get(f"{instrument}_ask", "N/A")
+            layout.market_table.add_row(instrument, str(bid), str(ask))
     
     return layout
 
