@@ -140,11 +140,10 @@ def update_display():
 
 def add_instrument(live):
     """Add a new instrument"""
-    console.print("\n[bold]Add Instrument[/bold]")
-    
     # Temporarily stop the main Live display
     live.stop()
     try:
+        console.print("\n[bold]Add Instrument[/bold]")
         symbol = console.input("Enter symbol (e.g. EUR/USD): ")
         name = console.input("Enter name/description: ")
         INSTRUMENTS[symbol] = {"symbol": symbol, "name": name}
@@ -155,14 +154,14 @@ def add_instrument(live):
 
 def remove_instrument(live):
     """Remove an existing instrument"""
-    console.print("\n[bold]Remove Instrument[/bold]")
-    console.print("Available instruments:")
-    for symbol, config in INSTRUMENTS.items():
-        console.print(f"{symbol} - {config['name']}")
-    
     # Temporarily stop the main Live display
     live.stop()
     try:
+        console.print("\n[bold]Remove Instrument[/bold]")
+        console.print("Available instruments:")
+        for symbol, config in INSTRUMENTS.items():
+            console.print(f"{symbol} - {config['name']}")
+        
         choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
         if choice.lower() == 'q':
             return
