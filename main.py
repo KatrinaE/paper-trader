@@ -138,30 +138,43 @@ def update_display():
         return create_table(data)
     return None
 
-def add_instrument():
+def add_instrument(live):
     """Add a new instrument"""
     console.print("\n[bold]Add Instrument[/bold]")
-    symbol = console.input("Enter symbol (e.g. EUR/USD): ")
-    name = console.input("Enter name/description: ")
-    INSTRUMENTS[symbol] = {"symbol": symbol, "name": name}
-    console.print(f"[green]Added {symbol} - {name}[/green]")
+    
+    # Temporarily stop the main Live display
+    live.stop()
+    try:
+        symbol = console.input("Enter symbol (e.g. EUR/USD): ")
+        name = console.input("Enter name/description: ")
+        INSTRUMENTS[symbol] = {"symbol": symbol, "name": name}
+        console.print(f"[green]Added {symbol} - {name}[/green]")
+    finally:
+        # Restart the main Live display
+        live.start()
 
-def remove_instrument():
+def remove_instrument(live):
     """Remove an existing instrument"""
     console.print("\n[bold]Remove Instrument[/bold]")
     console.print("Available instruments:")
     for symbol, config in INSTRUMENTS.items():
         console.print(f"{symbol} - {config['name']}")
     
-    choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
-    if choice.lower() == 'q':
-        return
-    
-    if choice in INSTRUMENTS:
-        del INSTRUMENTS[choice]
-        console.print(f"[green]Removed {choice}[/green]")
-    else:
-        console.print("[red]Invalid symbol[/red]")
+    # Temporarily stop the main Live display
+    live.stop()
+    try:
+        choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
+        if choice.lower() == 'q':
+            return
+        
+        if choice in INSTRUMENTS:
+            del INSTRUMENTS[choice]
+            console.print(f"[green]Removed {choice}[/green]")
+        else:
+            console.print("[red]Invalid symbol[/red]")
+    finally:
+        # Restart the main Live display
+        live.start()
 
 def main():
     """Main application loop"""
@@ -183,7 +196,7 @@ def main():
                 
                 if event.lower() == "a":
                     # First add the instrument
-                    add_instrument()
+                    add_instrument(live)
                     
                     # Create a new layout with updated data
                     new_layout = create_layout(get_market_data())
@@ -192,7 +205,7 @@ def main():
                         live.update(renderable, refresh=True)
                 elif event.lower() == "r":
                     # First remove the instrument
-                    remove_instrument()
+                    remove_instrument(live)
                     
                     # Create a new layout with updated data
                     new_layout = create_layout(get_market_data())
