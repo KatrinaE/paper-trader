@@ -188,8 +188,20 @@ def main():
                 
                 if event.lower() == "a":
                     add_instrument()
+                    # Update layout after adding instrument
+                    data = get_market_data()
+                    if data:
+                        update_layout(layout, data)
+                        renderable = layout
+                        live.update(renderable, refresh=True)
                 elif event.lower() == "r":
                     remove_instrument()
+                    # Update layout after removing instrument
+                    data = get_market_data()
+                    if data:
+                        update_layout(layout, data)
+                        renderable = layout
+                        live.update(renderable, refresh=True)
                 elif event.lower() == "q":
                     console.print("\n[green]Exiting...[/green]")
                     break
@@ -198,8 +210,8 @@ def main():
                 data = get_market_data()
                 if data:
                     update_layout(layout, data)
-                    renderable = layout  # Update the renderable
-                    live.update(renderable, refresh=True)  # Force refresh
+                    renderable = layout
+                    live.update(renderable, refresh=True)
                 
             except KeyboardInterrupt:
                 console.print("\n[green]Exiting...[/green]")
