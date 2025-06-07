@@ -150,23 +150,18 @@ def remove_instrument():
     """Remove an existing instrument"""
     console.print("\n[bold]Remove Instrument[/bold]")
     console.print("Available instruments:")
-    for i, (symbol, config) in enumerate(INSTRUMENTS.items(), 1):
-        console.print(f"{i}. {symbol} - {config['name']}")
+    for symbol, config in INSTRUMENTS.items():
+        console.print(f"{symbol} - {config['name']}")
     
-    choice = console.input("Enter number to remove (or 'q' to cancel): ")
+    choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
     if choice.lower() == 'q':
         return
     
-    try:
-        index = int(choice) - 1
-        if 0 <= index < len(INSTRUMENTS):
-            symbol = list(INSTRUMENTS.keys())[index]
-            del INSTRUMENTS[symbol]
-            console.print(f"[green]Removed {symbol}[/green]")
-        else:
-            console.print("[red]Invalid choice[/red]")
-    except ValueError:
-        console.print("[red]Invalid input[/red]")
+    if choice in INSTRUMENTS:
+        del INSTRUMENTS[choice]
+        console.print(f"[green]Removed {choice}[/green]")
+    else:
+        console.print("[red]Invalid symbol[/red]")
 
 def main():
     """Main application loop"""
