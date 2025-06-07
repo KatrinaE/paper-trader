@@ -3,6 +3,9 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
+from rich.panel import Panel
+from rich.text import Text
+from rich.prompt import Prompt
 import time
 from twelvedata import TDClient
 
@@ -22,11 +25,13 @@ if not API_KEY:
 client = TDClient(apikey=API_KEY)
 
 # Instruments configuration
-INSTRUMENTS = {
-    "EUR/USD": {"symbol": "EUR/USD", "type": "forex"},
-    "XAU/USD": {"symbol": "XAU/USD", "type": "commodities"},
-    "XAG/USD": {"symbol": "XAG/USD", "type": "commodities"}
+DEFAULT_INSTRUMENTS = {
+    "EUR/USD": {"symbol": "EUR/USD", "name": "Euro - US Dollar exchange rate"},
+    "XAU/USD": {"symbol": "XAU/USD", "name": "Gold"},
+    "XAG/USD": {"symbol": "XAG/USD", "name": "Silver"}
 }
+
+INSTRUMENTS = DEFAULT_INSTRUMENTS.copy()
 
 def get_market_data():
     """Fetch market data from Twelve Data API"""
@@ -65,6 +70,16 @@ def get_market_data():
         console.print(f"[red]Full error: {str(e)}[/red]")  # Print full error for debugging
         return None
 
+def create_menu():
+    """Create a menu panel"""
+    menu = """
+[bold]Menu:[/bold]
+- [yellow]a[/yellow] - Add instrument
+- [yellow]r[/yellow] - Remove instrument
+- [yellow]q[/yellow] - Quit
+    """
+    return Panel(menu, title="[bold magenta]Controls[/bold magenta]", border_style="blue")
+
 def create_table(data):
     """Create a table for displaying market data"""
     table = Table(show_header=True, header_style="bold magenta")
@@ -79,6 +94,34 @@ def create_table(data):
     
     return table
 
+def create_layout(data):
+    """Create the full layout with market data and menu"""
+    market_table = create_table(data)
+    menu = create_menu()
+    
+    # Create a layout with two columns
+    layout = Table.grid(expand=True)
+    layout.add_column("market", min_width=60)
+    layout.add_column("controls", min_width=20)
+    layout.add_row(market_table, menu)
+    
+    # Store the market table and menu for later updates
+    layout.market_table = market_table
+    layout.menu = menu
+    
+    return layout
+
+def update_layout(layout, data):
+    """Update the existing layout with new data"""
+    # Update the market table
+    layout.market_table.rows.clear()
+    for instrument in INSTRUMENTS:
+        bid = data.get(f"{instrument}_bid", "N/A")
+        ask = data.get(f"{instrument}_ask", "N/A")
+        layout.market_table.add_row(instrument, str(bid), str(ask))
+    
+    return layout
+
 def update_display():
     """Update the display with current market data"""
     data = get_market_data()
@@ -86,19 +129,69 @@ def update_display():
         return create_table(data)
     return None
 
+def add_instrument():
+    """Add a new instrument"""
+    console.print("\n[bold]Add Instrument[/bold]")
+    symbol = console.input("Enter symbol (e.g. EUR/USD): ")
+    name = console.input("Enter name/description: ")
+    INSTRUMENTS[symbol] = {"symbol": symbol, "name": name}
+    console.print(f"[green]Added {symbol} - {name}[/green]")
+
+def remove_instrument():
+    """Remove an existing instrument"""
+    console.print("\n[bold]Remove Instrument[/bold]")
+    console.print("Available instruments:")
+    for i, (symbol, config) in enumerate(INSTRUMENTS.items(), 1):
+        console.print(f"{i}. {symbol} - {config['name']}")
+    
+    choice = console.input("Enter number to remove (or 'q' to cancel): ")
+    if choice.lower() == 'q':
+        return
+    
+    try:
+        index = int(choice) - 1
+        if 0 <= index < len(INSTRUMENTS):
+            symbol = list(INSTRUMENTS.keys())[index]
+            del INSTRUMENTS[symbol]
+            console.print(f"[green]Removed {symbol}[/green]")
+        else:
+            console.print("[red]Invalid choice[/red]")
+    except ValueError:
+        console.print("[red]Invalid input[/red]")
+
 def main():
     """Main application loop"""
     if not API_KEY:
         console.print("[red]Error: API key not found. Please set API_KEY in .env file.[/red]")
         return
 
-    with Live(console=console, refresh_per_second=2) as live:
+    # Create initial layout
+    layout = create_layout(get_market_data())
+    
+    # Create a single renderable that we'll update
+    renderable = layout
+    
+    with Live(renderable, console=console, refresh_per_second=2, auto_refresh=False) as live:
         while True:
             try:
-                panel = update_display()
-                if panel:
-                    live.update(panel)
-                time.sleep(1)
+                # Wait for user input
+                event = Prompt.ask("\nPress a key (a/r/q)")
+                
+                if event.lower() == "a":
+                    add_instrument()
+                elif event.lower() == "r":
+                    remove_instrument()
+                elif event.lower() == "q":
+                    console.print("\n[green]Exiting...[/green]")
+                    break
+                
+                # Update the existing layout with new data
+                data = get_market_data()
+                if data:
+                    update_layout(layout, data)
+                    renderable = layout  # Update the renderable
+                    live.update(renderable, refresh=True)  # Force refresh
+                
             except KeyboardInterrupt:
                 console.print("\n[green]Exiting...[/green]")
                 break
@@ -107,4 +200,13 @@ def main():
                 time.sleep(1)
 
 if __name__ == "__main__":
+    console = Console()
+    load_dotenv()
+    API_KEY = os.getenv("API_KEY")
+    client = TDClient(apikey=API_KEY)
+    
+    # Print welcome message
+    console.print("\n[bold magenta]Market Data Terminal[/bold magenta]")
+    console.print("Press 'a' to add instrument, 'r' to remove, 'q' to quit")
+    
     main()
