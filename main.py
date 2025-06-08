@@ -25,11 +25,11 @@ if not API_KEY:
 client = TDClient(apikey=API_KEY)
 
 # Instruments configuration
-DEFAULT_INSTRUMENTS = {
-    "EUR/USD": {"symbol": "EUR/USD", "name": "Euro - US Dollar exchange rate"},
-    "XAU/USD": {"symbol": "XAU/USD", "name": "Gold"},
-    "XAG/USD": {"symbol": "XAG/USD", "name": "Silver"}
-}
+DEFAULT_INSTRUMENTS = [
+    {"symbol": "EUR/USD", "name": "Euro - US Dollar exchange rate", "category": "forex"},
+    {"symbol": "XAU/USD", "name": "Gold", "category": "commodities"},
+    {"symbol": "XAG/USD", "name": "Silver", "category": "commodities"}
+]
 
 INSTRUMENTS = DEFAULT_INSTRUMENTS.copy()
 
@@ -40,26 +40,26 @@ def get_market_data():
         data = {}
         
         # Fetch data for each instrument
-        for instrument, config in INSTRUMENTS.items():
-            console.print(f"[yellow]Fetching data for {instrument}...[/yellow]")
+        for instrument in INSTRUMENTS:
+            console.print(f"[yellow]Fetching data for {instrument['symbol']}...[/yellow]")
             
             # Get real-time quote
             quote = client.quote(
-                symbol=config["symbol"],
+                symbol=instrument["symbol"],
                 interval="1min"
             )
             
             if quote:
-                console.print(f"[green]Received data for {instrument}[/green]")
+                console.print(f"[green]Received data for {instrument['symbol']}[/green]")
                 # Extract bid/ask prices
                 bid = getattr(quote, "bid", "N/A")
                 ask = getattr(quote, "ask", "N/A")
                 
                 # Store in data dictionary
-                data[f"{instrument}_bid"] = bid
-                data[f"{instrument}_ask"] = ask
+                data[f"{instrument['symbol']}_bid"] = bid
+                data[f"{instrument['symbol']}_ask"] = ask
             else:
-                console.print(f"[red]No quote data received for {instrument}[/red]")
+                console.print(f"[red]No quote data received for {instrument['symbol']}[/red]")
         
         if not data:
             console.print("[red]No market data received from API[/red]")
@@ -82,21 +82,51 @@ def create_menu():
 
 def create_table(data):
     """Create a table for displaying market data"""
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Instrument", style="cyan")
-    table.add_column("Bid", style="green")
-    table.add_column("Ask", style="red")
-    
+    # Create tables for each category
+    forex_table = Table(show_header=True, header_style="bold magenta")
+    forex_table.add_column("Instrument", style="cyan")
+    forex_table.add_column("Bid", style="green")
+    forex_table.add_column("Ask", style="red")
+
+    commodities_table = Table(show_header=True, header_style="bold magenta")
+    commodities_table.add_column("Instrument", style="cyan")
+    commodities_table.add_column("Bid", style="green")
+    commodities_table.add_column("Ask", style="red")
+
     # Add empty row if no data
     if not data:
-        table.add_row("No data available", "N/A", "N/A")
+        forex_table.add_row("No data available", "N/A", "N/A")
+        commodities_table.add_row("No data available", "N/A", "N/A")
     else:
-        for instrument in INSTRUMENTS:
-            bid = data.get(f"{instrument}_bid", "N/A")
-            ask = data.get(f"{instrument}_ask", "N/A")
-            table.add_row(instrument, str(bid), str(ask))
-    
-    return table
+        # Sort instruments by category
+        forex_instruments = [i for i in INSTRUMENTS if i.get("category") == "forex"]
+        commodities_instruments = [i for i in INSTRUMENTS if i.get("category") == "commodities"]
+
+        # Add forex instruments to forex table
+        for config in forex_instruments:
+            symbol = config["symbol"]
+            bid = data.get(f"{symbol}_bid", "N/A")
+            ask = data.get(f"{symbol}_ask", "N/A")
+            forex_table.add_row(symbol, str(bid), str(ask))
+
+        # Add commodities instruments to commodities table
+        for config in commodities_instruments:
+            symbol = config["symbol"]
+            bid = data.get(f"{symbol}_bid", "N/A")
+            ask = data.get(f"{symbol}_ask", "N/A")
+            commodities_table.add_row(symbol, str(bid), str(ask))
+
+    # Create panels for each category
+    forex_panel = Panel(forex_table, title="[bold]Forex[/bold]", border_style="blue")
+    commodities_panel = Panel(commodities_table, title="[bold]Commodities[/bold]", border_style="blue")
+
+    # Create a grid layout for the panels
+    layout = Table.grid(expand=True)
+    layout.add_column("forex", min_width=40)
+    layout.add_column("commodities", min_width=40)
+    layout.add_row(forex_panel, commodities_panel)
+
+    return layout
 
 def create_layout(data):
     """Create the full layout with market data and menu"""
@@ -146,8 +176,12 @@ def add_instrument(live):
         console.print("\n[bold]Add Instrument[/bold]")
         symbol = console.input("Enter symbol (e.g. EUR/USD): ")
         name = console.input("Enter name/description: ")
-        INSTRUMENTS[symbol] = {"symbol": symbol, "name": name}
-        console.print(f"[green]Added {symbol} - {name}[/green]")
+        category = console.input("Enter category (forex/commodities): ").lower()
+        if category not in ["forex", "commodities"]:
+            console.print("[red]Invalid category. Must be 'forex' or 'commodities'[/red]")
+            return
+        INSTRUMENTS.append({"symbol": symbol, "name": name, "category": category})
+        console.print(f"[green]Added {symbol} - {name} (Category: {category})[/green]")
     finally:
         # Restart the main Live display
         live.start()
@@ -159,18 +193,21 @@ def remove_instrument(live):
     try:
         console.print("\n[bold]Remove Instrument[/bold]")
         console.print("Available instruments:")
-        for symbol, config in INSTRUMENTS.items():
-            console.print(f"{symbol} - {config['name']}")
+        for config in INSTRUMENTS:
+            console.print(f"{config['symbol']} - {config['name']} (Category: {config['category']})")
         
         choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
         if choice.lower() == 'q':
             return
         
-        if choice in INSTRUMENTS:
-            del INSTRUMENTS[choice]
-            console.print(f"[green]Removed {choice}[/green]")
-        else:
-            console.print("[red]Invalid symbol[/red]")
+        # Find and remove the instrument by symbol
+        for i, config in enumerate(INSTRUMENTS):
+            if config['symbol'] == choice:
+                removed_config = INSTRUMENTS.pop(i)
+                console.print(f"[green]Removed {removed_config['symbol']} - {removed_config['name']} (Category: {removed_config['category']})[/green]")
+                return
+        
+        console.print("[red]Invalid symbol[/red]")
     finally:
         # Restart the main Live display
         live.start()
