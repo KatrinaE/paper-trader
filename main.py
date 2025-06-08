@@ -1,7 +1,9 @@
 import os
 from dotenv import load_dotenv
 from rich.console import Console
-from rich.layout import Layout
+from rich.columns import Columns
+from rich.panel import Panel
+from rich.console import Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
@@ -86,24 +88,61 @@ def get_market_data():
 
 def create_layout(data):
     """Create a layout with separate panels for Forex, Commodities, and Stocks"""
-    # Create a grid layout with two rows
-    layout = Layout()
-    layout.split_column(
-        Layout(name="top", minimum_size=10),
-        Layout(name="bottom", minimum_size=10)
-    )
-    
-    # Top row will have Forex and Commodities side by side
-    layout["top"].split_row(
-        Layout(name="forex", minimum_size=10),
-        Layout(name="commodities", minimum_size=10)
-    )
-    
-    # Bottom row will have Stocks and Controls side by side
-    layout["bottom"].split_row(
-        Layout(name="stocks", minimum_size=10),
-        Layout(name="controls", minimum_size=10)
-    )
+    # Create tables for each category
+    forex_table = Table(title="Forex", show_header=True, header_style="bold")
+    forex_table.add_column("Instrument", style="cyan", no_wrap=True)
+    forex_table.add_column("Bid", style="green")
+    forex_table.add_column("Ask", style="red")
+
+    commodities_table = Table(title="Commodities", show_header=True, header_style="bold")
+    commodities_table.add_column("Instrument", style="cyan", no_wrap=True)
+    commodities_table.add_column("Bid", style="green")
+    commodities_table.add_column("Ask", style="red")
+
+    stocks_table = Table(title="Stocks", show_header=True, header_style="bold")
+    stocks_table.add_column("Instrument", style="cyan", no_wrap=True)
+    stocks_table.add_column("Bid", style="green")
+    stocks_table.add_column("Ask", style="red")
+
+    controls_table = Table(show_header=False)
+    controls_table.add_column("Menu", style="cyan", no_wrap=True)
+    controls_table.add_row("- a - Add instrument")
+    controls_table.add_row("- r - Remove instrument")
+    controls_table.add_row("- q - Quit")
+
+    # Add data to tables
+    for config in INSTRUMENTS:
+        if config['category'] == 'forex':
+            forex_table.add_row(
+                config['symbol'],
+                str(data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+            )
+        elif config['category'] == 'commodities':
+            commodities_table.add_row(
+                config['symbol'],
+                str(data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+            )
+        elif config['category'] == 'stocks':
+            stocks_table.add_row(
+                config['symbol'],
+                str(data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+            )
+
+    # Create panels for each table
+    forex_panel = Panel(forex_table, title="Forex", border_style="cyan")
+    commodities_panel = Panel(commodities_table, title="Commodities", border_style="yellow")
+    stocks_panel = Panel(stocks_table, title="Stocks", border_style="magenta")
+    controls_panel = Panel(controls_table, title="Controls", border_style="green")
+
+    # Create columns for each row
+    top_row = Columns([forex_panel, commodities_panel], equal=True)
+    bottom_row = Columns([stocks_panel, controls_panel], equal=True)
+
+    # Create the final layout with two rows
+    return Group(top_row, bottom_row)
 
     # Create tables for each category
     forex_table = Table(title="Forex", show_header=True, header_style="bold")
@@ -257,11 +296,15 @@ def main():
     # Create a single renderable that we'll update
     renderable = layout
     
+    # Print header once
+    console.print("\nMarket Data Terminal")
+    console.print("Press 'a' to add instrument, 'r' to remove, 'q' to quit")
+    
     with Live(renderable, console=console, refresh_per_second=2, auto_refresh=False) as live:
         while True:
             try:
                 # Wait for user input
-                event = Prompt.ask("\nPress a key (a/r/q)")
+                event = Prompt.ask("\n")
                 
                 if event.lower() == "a":
                     # First add the instrument
