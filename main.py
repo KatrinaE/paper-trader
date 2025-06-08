@@ -1,9 +1,10 @@
 import os
 from dotenv import load_dotenv
 from rich.console import Console
+from rich.layout import Layout
+from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
-from rich.panel import Panel
 from rich.text import Text
 from rich.prompt import Prompt
 import time
@@ -26,9 +27,22 @@ client = TDClient(apikey=API_KEY)
 
 # Instruments configuration
 DEFAULT_INSTRUMENTS = [
+    # Forex
     {"symbol": "EUR/USD", "name": "Euro - US Dollar exchange rate", "category": "forex"},
+    {"symbol": "GBP/USD", "name": "British Pound - US Dollar exchange rate", "category": "forex"},
+    {"symbol": "USD/JPY", "name": "US Dollar - Japanese Yen exchange rate", "category": "forex"},
+    
+    # Commodities
     {"symbol": "XAU/USD", "name": "Gold", "category": "commodities"},
-    {"symbol": "XAG/USD", "name": "Silver", "category": "commodities"}
+    {"symbol": "XAG/USD", "name": "Silver", "category": "commodities"},
+    {"symbol": "CL/USD", "name": "Crude Oil", "category": "commodities"},
+    
+    # Stocks
+    {"symbol": "AAPL", "name": "Apple Inc.", "category": "stocks"},
+    {"symbol": "GOOGL", "name": "Alphabet Inc. (Google)", "category": "stocks"},
+    {"symbol": "MSFT", "name": "Microsoft Corporation", "category": "stocks"},
+    {"symbol": "AMZN", "name": "Amazon.com Inc.", "category": "stocks"},
+    {"symbol": "TSLA", "name": "Tesla, Inc.", "category": "stocks"}
 ]
 
 INSTRUMENTS = DEFAULT_INSTRUMENTS.copy()
@@ -70,6 +84,85 @@ def get_market_data():
         console.print(f"[red]Full error: {str(e)}[/red]")  # Print full error for debugging
         return None
 
+def create_layout(data):
+    """Create a layout with separate panels for Forex, Commodities, and Stocks"""
+    # Create a grid layout with two rows
+    layout = Layout()
+    layout.split_column(
+        Layout(name="top", minimum_size=10),
+        Layout(name="bottom", minimum_size=10)
+    )
+    
+    # Top row will have Forex and Commodities side by side
+    layout["top"].split_row(
+        Layout(name="forex", minimum_size=10),
+        Layout(name="commodities", minimum_size=10)
+    )
+    
+    # Bottom row will have Stocks and Controls side by side
+    layout["bottom"].split_row(
+        Layout(name="stocks", minimum_size=10),
+        Layout(name="controls", minimum_size=10)
+    )
+
+    # Create tables for each category
+    forex_table = Table(title="Forex", show_header=True, header_style="bold")
+    forex_table.add_column("Instrument", style="cyan", no_wrap=True)
+    forex_table.add_column("Bid", style="green")
+    forex_table.add_column("Ask", style="red")
+
+    commodities_table = Table(title="Commodities", show_header=True, header_style="bold")
+    commodities_table.add_column("Instrument", style="cyan", no_wrap=True)
+    commodities_table.add_column("Bid", style="green")
+    commodities_table.add_column("Ask", style="red")
+
+    stocks_table = Table(title="Stocks", show_header=True, header_style="bold")
+    stocks_table.add_column("Instrument", style="cyan", no_wrap=True)
+    stocks_table.add_column("Bid", style="green")
+    stocks_table.add_column("Ask", style="red")
+
+    # Add data to tables
+    for config in INSTRUMENTS:
+        if config['category'] == 'forex':
+            forex_table.add_row(
+                config['symbol'],
+                str(data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+            )
+        elif config['category'] == 'commodities':
+            commodities_table.add_row(
+                config['symbol'],
+                str(data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+            )
+        elif config['category'] == 'stocks':
+            stocks_table.add_row(
+                config['symbol'],
+                str(data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+            )
+
+    # Create panels for each category
+    forex_panel = Panel(forex_table, title="Forex", border_style="cyan")
+    commodities_panel = Panel(commodities_table, title="Commodities", border_style="yellow")
+    stocks_panel = Panel(stocks_table, title="Stocks", border_style="magenta")
+
+    # Create controls panel
+    controls_table = Table(show_header=False)
+    controls_table.add_column("Menu", style="cyan", no_wrap=True)
+    controls_table.add_row("- a - Add instrument")
+    controls_table.add_row("- r - Remove instrument")
+    controls_table.add_row("- q - Quit")
+    controls_panel = Panel(controls_table, title="Controls", border_style="green")
+
+    # Add panels to layout
+    layout["forex"].update(forex_panel)
+    layout["commodities"].update(commodities_panel)
+    layout["stocks"].update(stocks_panel)
+    layout["controls"].update(controls_panel)
+
+    return layout
+
 def create_menu():
     """Create a menu panel"""
     menu = """
@@ -80,72 +173,6 @@ def create_menu():
     """
     return Panel(menu, title="[bold magenta]Controls[/bold magenta]", border_style="blue")
 
-def create_table(data):
-    """Create a table for displaying market data"""
-    # Create tables for each category
-    forex_table = Table(show_header=True, header_style="bold magenta")
-    forex_table.add_column("Instrument", style="cyan")
-    forex_table.add_column("Bid", style="green")
-    forex_table.add_column("Ask", style="red")
-
-    commodities_table = Table(show_header=True, header_style="bold magenta")
-    commodities_table.add_column("Instrument", style="cyan")
-    commodities_table.add_column("Bid", style="green")
-    commodities_table.add_column("Ask", style="red")
-
-    # Add empty row if no data
-    if not data:
-        forex_table.add_row("No data available", "N/A", "N/A")
-        commodities_table.add_row("No data available", "N/A", "N/A")
-    else:
-        # Sort instruments by category
-        forex_instruments = [i for i in INSTRUMENTS if i.get("category") == "forex"]
-        commodities_instruments = [i for i in INSTRUMENTS if i.get("category") == "commodities"]
-
-        # Add forex instruments to forex table
-        for config in forex_instruments:
-            symbol = config["symbol"]
-            bid = data.get(f"{symbol}_bid", "N/A")
-            ask = data.get(f"{symbol}_ask", "N/A")
-            forex_table.add_row(symbol, str(bid), str(ask))
-
-        # Add commodities instruments to commodities table
-        for config in commodities_instruments:
-            symbol = config["symbol"]
-            bid = data.get(f"{symbol}_bid", "N/A")
-            ask = data.get(f"{symbol}_ask", "N/A")
-            commodities_table.add_row(symbol, str(bid), str(ask))
-
-    # Create panels for each category
-    forex_panel = Panel(forex_table, title="[bold]Forex[/bold]", border_style="blue")
-    commodities_panel = Panel(commodities_table, title="[bold]Commodities[/bold]", border_style="blue")
-
-    # Create a grid layout for the panels
-    layout = Table.grid(expand=True)
-    layout.add_column("forex", min_width=40)
-    layout.add_column("commodities", min_width=40)
-    layout.add_row(forex_panel, commodities_panel)
-
-    return layout
-
-def create_layout(data):
-    """Create the full layout with market data and menu"""
-    market_table = create_table(data)
-    menu = create_menu()
-    
-    # Create a layout with two columns
-    layout = Table.grid(expand=True)
-    layout.add_column("market", min_width=60)
-    layout.add_column("controls", min_width=20)
-    layout.add_row(market_table, menu)
-    
-    # Store the market table and menu for later updates
-    layout.market_table = market_table
-    layout.menu = menu
-    
-    return layout
-
-def update_layout(layout, data):
     """Update the existing layout with new data"""
     # Update the market table
     layout.market_table.rows.clear()
@@ -261,10 +288,8 @@ def main():
                 # Update the existing layout with new data
                 data = get_market_data()
                 if data:
-                    new_layout = create_layout(data)
-                    if new_layout:
-                        renderable = new_layout
-                        live.update(renderable, refresh=True)
+                    renderable = create_layout(data)
+                    live.update(renderable, refresh=True)
                 
             except KeyboardInterrupt:
                 console.print("\n[green]Exiting...[/green]")
