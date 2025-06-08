@@ -200,18 +200,20 @@ def remove_instrument(live):
         for config in INSTRUMENTS:
             console.print(f"{config['symbol']} - {config['name']} (Category: {config['category']})")
         
-        choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
-        if choice.lower() == 'q':
-            return
-        
-        # Find and remove the instrument by symbol
-        for i, config in enumerate(INSTRUMENTS):
-            if config['symbol'] == choice:
-                removed_config = INSTRUMENTS.pop(i)
-                console.print(f"[green]Removed {removed_config['symbol']} - {removed_config['name']} (Category: {removed_config['category']})[/green]")
+        # Keep asking until we get a valid symbol or user cancels
+        while True:
+            choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
+            if choice.lower() == 'q':
                 return
-        
-        console.print("[red]Invalid symbol[/red]")
+                
+            # Find the instrument by symbol
+            for i, config in enumerate(INSTRUMENTS):
+                if config['symbol'] == choice:
+                    removed_config = INSTRUMENTS.pop(i)
+                    console.print(f"[green]Removed {removed_config['symbol']} - {removed_config['name']} (Category: {removed_config['category']})[/green]")
+                    return
+            
+            console.print("[yellow]Invalid symbol. Please try again or enter 'q' to cancel.[/yellow]")
     finally:
         # Restart the main Live display
         live.start()
