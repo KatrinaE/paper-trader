@@ -89,17 +89,17 @@ def get_market_data():
 def create_layout(data):
     """Create a layout with separate panels for Forex, Commodities, and Stocks"""
     # Create tables for each category
-    forex_table = Table(title="Forex", show_header=True, header_style="bold")
+    forex_table = Table(show_header=True, header_style="bold")
     forex_table.add_column("Instrument", style="cyan", no_wrap=True)
     forex_table.add_column("Bid", style="green")
     forex_table.add_column("Ask", style="red")
 
-    commodities_table = Table(title="Commodities", show_header=True, header_style="bold")
+    commodities_table = Table(show_header=True, header_style="bold")
     commodities_table.add_column("Instrument", style="cyan", no_wrap=True)
     commodities_table.add_column("Bid", style="green")
     commodities_table.add_column("Ask", style="red")
 
-    stocks_table = Table(title="Stocks", show_header=True, header_style="bold")
+    stocks_table = Table(show_header=True, header_style="bold")
     stocks_table.add_column("Instrument", style="cyan", no_wrap=True)
     stocks_table.add_column("Bid", style="green")
     stocks_table.add_column("Ask", style="red")
@@ -145,17 +145,17 @@ def create_layout(data):
     return Group(top_row, bottom_row)
 
     # Create tables for each category
-    forex_table = Table(title="Forex", show_header=True, header_style="bold")
+    forex_table = Table(show_header=True, header_style="bold")
     forex_table.add_column("Instrument", style="cyan", no_wrap=True)
     forex_table.add_column("Bid", style="green")
     forex_table.add_column("Ask", style="red")
 
-    commodities_table = Table(title="Commodities", show_header=True, header_style="bold")
+    commodities_table = Table(show_header=True, header_style="bold")
     commodities_table.add_column("Instrument", style="cyan", no_wrap=True)
     commodities_table.add_column("Bid", style="green")
     commodities_table.add_column("Ask", style="red")
 
-    stocks_table = Table(title="Stocks", show_header=True, header_style="bold")
+    stocks_table = Table(show_header=True, header_style="bold")
     stocks_table.add_column("Instrument", style="cyan", no_wrap=True)
     stocks_table.add_column("Bid", style="green")
     stocks_table.add_column("Ask", style="red")
