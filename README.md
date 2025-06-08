@@ -1,6 +1,6 @@
-# Market Data Terminal
+# Paper Trader
 
-A Python terminal application for streaming commodities and forex market data using Twelve Data API.
+A terminal-based paper trading application using Rich and Twelve Data API.
 
 ## Features
 - Real-time market data streaming
