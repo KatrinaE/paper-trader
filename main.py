@@ -176,10 +176,14 @@ def add_instrument(live):
         console.print("\n[bold]Add Instrument[/bold]")
         symbol = console.input("Enter symbol (e.g. EUR/USD): ")
         name = console.input("Enter name/description: ")
-        category = console.input("Enter category (forex/commodities): ").lower()
-        if category not in ["forex", "commodities"]:
-            console.print("[red]Invalid category. Must be 'forex' or 'commodities'[/red]")
-            return
+        
+        # Loop until we get a valid category
+        while True:
+            category = console.input("Enter category (forex/commodities): ").lower()
+            if category in ["forex", "commodities"]:
+                break
+            console.print("[yellow]Oops! Please enter either 'forex' or 'commodities'.[/yellow]")
+        
         INSTRUMENTS.append({"symbol": symbol, "name": name, "category": category})
         console.print(f"[green]Added {symbol} - {name} (Category: {category})[/green]")
     finally:
