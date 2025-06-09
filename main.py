@@ -245,10 +245,10 @@ def add_instrument(live):
         
         # Loop until we get a valid category
         while True:
-            category = console.input("Enter category (forex/commodities): ").lower()
-            if category in ["forex", "commodities"]:
+            category = console.input("Enter category (forex/commodities/stocks): ").lower()
+            if category in ["forex", "commodities", "stocks"]:
                 break
-            console.print("[yellow]Oops! Please enter either 'forex' or 'commodities'.[/yellow]")
+            console.print("[yellow]Oops! Please enter either 'forex', 'commodities', or 'stocks'.[/yellow]")
         
         INSTRUMENTS.append({"symbol": symbol, "name": name, "category": category})
         console.print(f"[green]Added {symbol} - {name} (Category: {category})[/green]")
