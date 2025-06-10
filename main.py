@@ -12,12 +12,40 @@ from rich.prompt import Prompt
 import time
 from twelvedata import TDClient
 
+# Rate limiting constants
+MAX_CALLS_PER_MINUTE = 8
+CALL_WINDOW_SECONDS = 60  # 1 minute
+
+class RateLimiter:
+    def __init__(self, max_calls, window_seconds):
+        self.max_calls = max_calls
+        self.window_seconds = window_seconds
+        self.calls = []
+
+    def wait_if_needed(self):
+        # Remove old calls from the list
+        now = time.time()
+        self.calls = [call for call in self.calls if now - call <= self.window_seconds]
+
+        # If we've reached the limit, wait until we can make another call
+        if len(self.calls) >= self.max_calls:
+            time_to_wait = self.calls[0] + self.window_seconds - now
+            if time_to_wait > 0:
+                console.print(f"[yellow]Rate limit reached. Waiting {time_to_wait:.1f} seconds...[/yellow]")
+                time.sleep(time_to_wait)
+
+        # Record this call
+        self.calls.append(time.time())
+
 # Load environment variables
 load_dotenv()
 
 # Initialize API client
 API_KEY = os.getenv("API_KEY")
 client = TDClient(apikey=API_KEY)
+
+# Initialize rate limiter
+rate_limiter = RateLimiter(MAX_CALLS_PER_MINUTE, CALL_WINDOW_SECONDS)
 
 # Initialize console
 console = Console()
@@ -52,23 +80,25 @@ DEFAULT_INSTRUMENTS = [
 INSTRUMENTS = DEFAULT_INSTRUMENTS.copy()
 
 def get_market_data():
-    """Fetch market data from Twelve Data API"""
+    """Fetch market data from Twelve Data API with rate limiting"""
     try:
         console.print("[yellow]Fetching market data...[/yellow]")
         data = {}
         
         # Fetch data for each instrument
         for instrument in INSTRUMENTS:
+            # Wait if we've hit the rate limit
+            rate_limiter.wait_if_needed()
+
             console.print(f"[yellow]Fetching data for {instrument['symbol']}...[/yellow]")
+
             # Get time series data
             try:
-
                 ts = client.time_series(
                     symbol=instrument["symbol"],
                     interval="1min",
                     outputsize=1
                 )
-
                 
                 if ts:
                     json_data = ts.as_json()
