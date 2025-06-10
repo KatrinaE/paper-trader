@@ -11,6 +11,7 @@ from rich.text import Text
 from rich.prompt import Prompt
 import time
 from twelvedata import TDClient
+import argparse
 
 # Rate limiting constants
 MAX_CALLS_PER_MINUTE = 8
@@ -50,11 +51,6 @@ rate_limiter = RateLimiter(MAX_CALLS_PER_MINUTE, CALL_WINDOW_SECONDS)
 # Initialize console
 console = Console()
 
-# Configuration
-if not API_KEY:
-    console.print("[red]Error: API key not found. Please set API_KEY in .env file.[/red]")
-    exit(1)
-
 # Instruments configuration
 DEFAULT_INSTRUMENTS = [
     # Forex
@@ -79,18 +75,20 @@ DEFAULT_INSTRUMENTS = [
 
 INSTRUMENTS = DEFAULT_INSTRUMENTS.copy()
 
-def get_market_data():
+def get_market_data(verbosity=1):
     """Fetch market data from Twelve Data API with rate limiting"""
+
     rate_limiter.wait_if_needed()
 
     try:
         # Check credit usage first
+        client = TDClient(apikey=API_KEY)
         credit_usage = client.api_usage()
         if credit_usage:
             usage_data = credit_usage.as_json()
             console.print(
-                f"[cyan]Current credit usage: {usage_data.get('current_usage', 'N/A')}/{usage_data.get('plan_limit', 'N/A')};" + \
-                    f"Daily usage: {usage_data.get('daily_usage', 'N/A')}/{usage_data.get('plan_daily_limit', 'N/A')} [/cyan]")
+                f"[cyan]Current credit usage: {usage_data.get('current_usage', 'N/A')}/{usage_data.get('plan_limit', 'N/A')}" + \
+                    f";Daily usage: {usage_data.get('daily_usage', 'N/A')}/{usage_data.get('plan_daily_limit', 'N/A')} [/cyan]")
             if usage_data.get('current_usage', 0) >= usage_data.get('plan_limit', 0) or \
                 usage_data.get('daily_usage', 0) >= usage_data.get('plan_daily_limit', 0):
                 console.print("[red]No credits remaining! Please upgrade your plan or wait for credits to reset.[/red]")
@@ -103,7 +101,8 @@ def get_market_data():
             # Wait if we've hit the rate limit
             rate_limiter.wait_if_needed()
 
-            console.print(f"[yellow]Fetching data for {instrument['symbol']}...[/yellow]")
+            if verbosity >= 2:
+                console.print(f"[yellow]Fetching data for {instrument['symbol']}...[/yellow]")
 
             # Get time series data
             try:
@@ -116,7 +115,8 @@ def get_market_data():
                 if ts:
                     json_data = ts.as_json()
                     if isinstance(json_data, tuple) and len(json_data) > 0:
-                        console.print(f"[green]Received data for {instrument['symbol']}[/green]")
+                        if verbosity >= 2:
+                            console.print(f"[green]Received data for {instrument['symbol']}[/green]")
                         # Extract last price as bid/ask (for simplicity)
                         last_price = json_data[0]["close"]
                         
@@ -135,7 +135,8 @@ def get_market_data():
         if not data:
             console.print("[red]No market data received from API[/red]")
         else:
-            console.print("[green]Successfully fetched market data[/green]")
+            if verbosity >= 2:
+                console.print("[green]Successfully fetched market data[/green]")
         
         return data
     except Exception as e:
@@ -209,12 +210,9 @@ def create_layout(data):
     # Create the final layout with two rows
     return Group(top_row, bottom_row)
 
-def update_display():
+def update_display(data):
     """Update the display with current market data"""
-    data = get_market_data()
-    if data:
-        return create_layout(data)
-    return None
+    return create_layout(data)
 
 def add_instrument(live):
     """Add a new instrument"""
@@ -266,14 +264,15 @@ def remove_instrument(live):
         # Restart the main Live display
         live.start()
 
-def main():
+def main(verbosity=1):
     """Main application loop"""
     if not API_KEY:
         console.print("[red]Error: API key not found. Please set API_KEY in .env file.[/red]")
         return
 
     # Create initial layout
-    layout = create_layout(get_market_data())
+    data = get_market_data(verbosity)
+    layout = create_layout(data)
     
     # Create a single renderable that we'll update
     renderable = layout
@@ -293,7 +292,7 @@ def main():
                     add_instrument(live)
                     
                     # Create a new layout with updated data
-                    new_layout = create_layout(get_market_data())
+                    new_layout = update_display(get_market_data(verbosity))
                     if new_layout:
                         renderable = new_layout
                         live.update(renderable, refresh=True)
@@ -302,7 +301,7 @@ def main():
                     remove_instrument(live)
                     
                     # Create a new layout with updated data
-                    new_layout = create_layout(get_market_data())
+                    new_layout = update_display(get_market_data(verbosity))
                     if new_layout:
                         renderable = new_layout
                         live.update(renderable, refresh=True)
@@ -311,7 +310,7 @@ def main():
                     break
                 
                 # Update the existing layout with new data
-                data = get_market_data()
+                data = get_market_data(verbosity)
                 if data:
                     console.print("[green]Got market data... updating layout[/green]")
                     renderable = create_layout(data)
@@ -325,9 +324,25 @@ def main():
                 time.sleep(1)
 
 if __name__ == "__main__":
+    # Initialize console
     console = Console()
-    # Print welcome message
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Paper Trader Market Data Terminal')
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help='Increase verbosity level (-v for basic, -vv for detailed)')
+    args = parser.parse_args()
+    
+    # Set verbosity level (0-2)
+    verbosity = min(args.verbose, 2)
+    
+    # Print welcome message with verbosity level
     console.print("\n[bold magenta]Market Data Terminal[/bold magenta]")
     console.print("Press 'a' to add instrument, 'r' to remove, 'q' to quit")
+    if verbosity >= 1:
+        console.print(f"[cyan]Verbosity level: {verbosity}[/cyan]")
     
-    main()
+    try:
+        main(verbosity)
+    except KeyboardInterrupt:
+        console.print("\n[green]Exiting...[/green]")
