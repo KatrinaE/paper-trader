@@ -269,7 +269,7 @@ def main():
     console.print("\nMarket Data Terminal")
     console.print("Press 'a' to add instrument, 'r' to remove, 'q' to quit")
     
-    with Live(renderable, console=console, refresh_per_second=1/65, auto_refresh=False) as live:
+    with Live(renderable, console=console, auto_refresh=False) as live:
         while True:
             try:
                 # Wait for user input
@@ -300,10 +300,9 @@ def main():
                 # Update the existing layout with new data
                 data = get_market_data()
                 if data:
+                    console.print("[green]Got market data... updating layout[/green]")
                     renderable = create_layout(data)
                     live.update(renderable, refresh=True)
-                    # Add a small delay to ensure the screen refreshes properly
-                    time.sleep(0.1)
                 
             except KeyboardInterrupt:
                 console.print("\n[green]Exiting...[/green]")
