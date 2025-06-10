@@ -15,17 +15,17 @@ from twelvedata import TDClient
 # Load environment variables
 load_dotenv()
 
+# Initialize API client
+API_KEY = os.getenv("API_KEY")
+client = TDClient(apikey=API_KEY)
+
 # Initialize console
 console = Console()
 
 # Configuration
-API_KEY = os.getenv('API_KEY')
 if not API_KEY:
     console.print("[red]Error: API key not found. Please set API_KEY in .env file.[/red]")
     exit(1)
-
-# Initialize Twelve Data client
-client = TDClient(apikey=API_KEY)
 
 # Instruments configuration
 DEFAULT_INSTRUMENTS = [
@@ -36,15 +36,17 @@ DEFAULT_INSTRUMENTS = [
     
     # Commodities
     {"symbol": "XAU/USD", "name": "Gold", "category": "commodities"},
-    {"symbol": "XAG/USD", "name": "Silver", "category": "commodities"},
-    {"symbol": "CL/USD", "name": "Crude Oil", "category": "commodities"},
+    # Silver is not in our API plan
+    # {"symbol": "XAG/USD", "name": "Silver", "category": "commodities"},
+    # Crude oil is not in our API plan
+    # {"symbol": "CL1", "name": "Crude Oil", "category": "commodities"},
     
     # Stocks
     {"symbol": "AAPL", "name": "Apple Inc.", "category": "stocks"},
     {"symbol": "GOOGL", "name": "Alphabet Inc. (Google)", "category": "stocks"},
     {"symbol": "MSFT", "name": "Microsoft Corporation", "category": "stocks"},
-    {"symbol": "AMZN", "name": "Amazon.com Inc.", "category": "stocks"},
-    {"symbol": "TSLA", "name": "Tesla, Inc.", "category": "stocks"}
+    # {"symbol": "AMZN", "name": "Amazon.com Inc.", "category": "stocks"},
+    #{"symbol": "TSLA", "name": "Tesla, Inc.", "category": "stocks"}
 ]
 
 INSTRUMENTS = DEFAULT_INSTRUMENTS.copy()
@@ -58,33 +60,46 @@ def get_market_data():
         # Fetch data for each instrument
         for instrument in INSTRUMENTS:
             console.print(f"[yellow]Fetching data for {instrument['symbol']}...[/yellow]")
-            
-            # Get real-time quote
-            quote = client.quote(
-                symbol=instrument["symbol"],
-                interval="1min"
-            )
-            
-            if quote:
-                console.print(f"[green]Received data for {instrument['symbol']}[/green]")
-                # Extract bid/ask prices
-                bid = getattr(quote, "bid", "N/A")
-                ask = getattr(quote, "ask", "N/A")
+            # Get time series data
+            try:
+
+                ts = client.time_series(
+                    symbol=instrument["symbol"],
+                    interval="1min",
+                    outputsize=1
+                )
+
                 
-                # Store in data dictionary
-                data[f"{instrument['symbol']}_bid"] = bid
-                data[f"{instrument['symbol']}_ask"] = ask
-            else:
-                console.print(f"[red]No quote data received for {instrument['symbol']}[/red]")
+                if ts:
+                    json_data = ts.as_json()
+                    if isinstance(json_data, tuple) and len(json_data) > 0:
+                        console.print(f"[green]Received data for {instrument['symbol']}[/green]")
+                        # Extract last price as bid/ask (for simplicity)
+                        last_price = json_data[0]["close"]
+                        
+                        # Store in data dictionary
+                        data[f"{instrument['symbol']}_bid"] = last_price
+                        data[f"{instrument['symbol']}_ask"] = last_price
+                    else:
+                        console.print(f"[red]No data points received for {instrument['symbol']}[/red]")
+                else:
+                    console.print(f"[red]No time series object received for {instrument['symbol']}[/red]")
+            except Exception as e:
+                console.print(f"[red]Error fetching data for {instrument['symbol']}: {str(e)}[/red]")
+                import traceback
+                console.print(f"[red]Full error details: {traceback.format_exc()}[/red]")
         
         if not data:
             console.print("[red]No market data received from API[/red]")
+        else:
+            console.print("[green]Successfully fetched market data[/green]")
         
         return data
     except Exception as e:
         console.print(f"[red]Error fetching data: {str(e)}[/red]")
-        console.print(f"[red]Full error: {str(e)}[/red]")  # Print full error for debugging
-        return None
+        import traceback
+        console.print(f"[red]Full error details: {traceback.format_exc()}[/red]")
+        return {}
 
 def create_layout(data):
     """Create a layout with separate panels for Forex, Commodities, and Stocks"""
@@ -135,56 +150,6 @@ def create_layout(data):
     forex_panel = Panel(forex_table, title="Forex", border_style="cyan")
     commodities_panel = Panel(commodities_table, title="Commodities", border_style="yellow")
     stocks_panel = Panel(stocks_table, title="Stocks", border_style="magenta")
-    controls_panel = Panel(controls_table, title="Controls", border_style="green")
-
-    # Create columns for each row
-    top_row = Columns([forex_panel, commodities_panel], equal=True)
-    bottom_row = Columns([stocks_panel, controls_panel], equal=True)
-
-    # Create the final layout with two rows
-    return Group(top_row, bottom_row)
-
-    # Create tables for each category
-    forex_table = Table(show_header=True, header_style="bold")
-    forex_table.add_column("Instrument", style="cyan", no_wrap=True)
-    forex_table.add_column("Bid", style="green")
-    forex_table.add_column("Ask", style="red")
-
-    commodities_table = Table(show_header=True, header_style="bold")
-    commodities_table.add_column("Instrument", style="cyan", no_wrap=True)
-    commodities_table.add_column("Bid", style="green")
-    commodities_table.add_column("Ask", style="red")
-
-    stocks_table = Table(show_header=True, header_style="bold")
-    stocks_table.add_column("Instrument", style="cyan", no_wrap=True)
-    stocks_table.add_column("Bid", style="green")
-    stocks_table.add_column("Ask", style="red")
-
-    # Add data to tables
-    for config in INSTRUMENTS:
-        if config['category'] == 'forex':
-            forex_table.add_row(
-                config['symbol'],
-                str(data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(data.get(f"{config['symbol']}_ask", 'N/A'))
-            )
-        elif config['category'] == 'commodities':
-            commodities_table.add_row(
-                config['symbol'],
-                str(data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(data.get(f"{config['symbol']}_ask", 'N/A'))
-            )
-        elif config['category'] == 'stocks':
-            stocks_table.add_row(
-                config['symbol'],
-                str(data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(data.get(f"{config['symbol']}_ask", 'N/A'))
-            )
-
-    # Create panels for each category
-    forex_panel = Panel(forex_table, title="Forex", border_style="cyan")
-    commodities_panel = Panel(commodities_table, title="Commodities", border_style="yellow")
-    stocks_panel = Panel(stocks_table, title="Stocks", border_style="magenta")
 
     # Create controls panel
     controls_table = Table(show_header=False)
@@ -194,44 +159,18 @@ def create_layout(data):
     controls_table.add_row("- q - Quit")
     controls_panel = Panel(controls_table, title="Controls", border_style="green")
 
-    # Add panels to layout
-    layout["forex"].update(forex_panel)
-    layout["commodities"].update(commodities_panel)
-    layout["stocks"].update(stocks_panel)
-    layout["controls"].update(controls_panel)
+    # Create columns for each row
+    top_row = Columns([forex_panel, commodities_panel], equal=True)
+    bottom_row = Columns([stocks_panel, controls_panel], equal=True)
 
-    return layout
-
-def create_menu():
-    """Create a menu panel"""
-    menu = """
-[bold]Menu:[/bold]
-- [yellow]a[/yellow] - Add instrument
-- [yellow]r[/yellow] - Remove instrument
-- [yellow]q[/yellow] - Quit
-    """
-    return Panel(menu, title="[bold magenta]Controls[/bold magenta]", border_style="blue")
-
-    """Update the existing layout with new data"""
-    # Update the market table
-    layout.market_table.rows.clear()
-    
-    # Add empty row if no data
-    if not data:
-        layout.market_table.add_row("No data available", "N/A", "N/A")
-    else:
-        for instrument in INSTRUMENTS:
-            bid = data.get(f"{instrument}_bid", "N/A")
-            ask = data.get(f"{instrument}_ask", "N/A")
-            layout.market_table.add_row(instrument, str(bid), str(ask))
-    
-    return layout
+    # Create the final layout with two rows
+    return Group(top_row, bottom_row)
 
 def update_display():
     """Update the display with current market data"""
     data = get_market_data()
     if data:
-        return create_table(data)
+        return create_layout(data)
     return None
 
 def add_instrument(live):
@@ -343,10 +282,6 @@ def main():
 
 if __name__ == "__main__":
     console = Console()
-    load_dotenv()
-    API_KEY = os.getenv("API_KEY")
-    client = TDClient(apikey=API_KEY)
-    
     # Print welcome message
     console.print("\n[bold magenta]Market Data Terminal[/bold magenta]")
     console.print("Press 'a' to add instrument, 'r' to remove, 'q' to quit")
