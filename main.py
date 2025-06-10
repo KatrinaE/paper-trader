@@ -302,6 +302,8 @@ def main():
                 if data:
                     renderable = create_layout(data)
                     live.update(renderable, refresh=True)
+                    # Add a small delay to ensure the screen refreshes properly
+                    time.sleep(0.1)
                 
             except KeyboardInterrupt:
                 console.print("\n[green]Exiting...[/green]")
