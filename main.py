@@ -278,7 +278,6 @@ def main(verbosity=1):
     renderable = layout
     
     # Print header once
-    console.print("\nMarket Data Terminal")
     console.print("Press 'a' to add instrument, 'r' to remove, 'q' to quit")
     
     with Live(renderable, console=console, auto_refresh=False) as live:
@@ -338,7 +337,6 @@ if __name__ == "__main__":
     
     # Print welcome message with verbosity level
     console.print("\n[bold magenta]Market Data Terminal[/bold magenta]")
-    console.print("Press 'a' to add instrument, 'r' to remove, 'q' to quit")
     if verbosity >= 1:
         console.print(f"[cyan]Verbosity level: {verbosity}[/cyan]")
     
