@@ -87,8 +87,8 @@ def get_market_data(verbosity=1):
         if credit_usage:
             usage_data = credit_usage.as_json()
             console.print(
-                f"[cyan]Current credit usage: {usage_data.get('current_usage', 'N/A')}/{usage_data.get('plan_limit', 'N/A')}" + \
-                    f";Daily usage: {usage_data.get('daily_usage', 'N/A')}/{usage_data.get('plan_daily_limit', 'N/A')} [/cyan]")
+                f"[cyan]Current API credit usage: {usage_data.get('current_usage', 'N/A')}/{usage_data.get('plan_limit', 'N/A')}" + \
+                    f"; Daily API credit usage: {usage_data.get('daily_usage', 'N/A')}/{usage_data.get('plan_daily_limit', 'N/A')} [/cyan]")
             if usage_data.get('current_usage', 0) >= usage_data.get('plan_limit', 0) or \
                 usage_data.get('daily_usage', 0) >= usage_data.get('plan_daily_limit', 0):
                 console.print("[red]No credits remaining! Please upgrade your plan or wait for credits to reset.[/red]")
