@@ -75,14 +75,20 @@ DEFAULT_INSTRUMENTS = [
 
 INSTRUMENTS = DEFAULT_INSTRUMENTS.copy()
 
-def get_market_data(verbosity=1):
-    """Fetch market data from Twelve Data API with rate limiting"""
+def get_market_data(verbosity=1, market_data='twelvedata'):
+    """Fetch market data from Twelve Data API or return default NA values"""
+    if market_data == 'none':
+        # Return default NA values for all instruments
+        data = {}
+        for instrument in INSTRUMENTS:
+            data[f"{instrument['symbol']}_bid"] = 'N/A'
+            data[f"{instrument['symbol']}_ask"] = 'N/A'
+        return data
 
     rate_limiter.wait_if_needed()
 
     try:
         # Check credit usage first
-        client = TDClient(apikey=API_KEY)
         credit_usage = client.api_usage()
         if credit_usage:
             usage_data = credit_usage.as_json()
@@ -264,14 +270,10 @@ def remove_instrument(live):
         # Restart the main Live display
         live.start()
 
-def main(verbosity=1):
+def main(verbosity=1, market_data='twelvedata'):
     """Main application loop"""
-    if not API_KEY:
-        console.print("[red]Error: API key not found. Please set API_KEY in .env file.[/red]")
-        return
-
     # Create initial layout
-    data = get_market_data(verbosity)
+    data = get_market_data(verbosity, market_data)
     layout = create_layout(data)
     
     # Create a single renderable that we'll update
@@ -291,7 +293,7 @@ def main(verbosity=1):
                     add_instrument(live)
                     
                     # Create a new layout with updated data
-                    new_layout = update_display(get_market_data(verbosity))
+                    new_layout = update_display(get_market_data(verbosity, market_data))
                     if new_layout:
                         renderable = new_layout
                         live.update(renderable, refresh=True)
@@ -300,7 +302,7 @@ def main(verbosity=1):
                     remove_instrument(live)
                     
                     # Create a new layout with updated data
-                    new_layout = update_display(get_market_data(verbosity))
+                    new_layout = update_display(get_market_data(verbosity, market_data))
                     if new_layout:
                         renderable = new_layout
                         live.update(renderable, refresh=True)
@@ -309,9 +311,8 @@ def main(verbosity=1):
                     break
                 
                 # Update the existing layout with new data
-                data = get_market_data(verbosity)
+                data = get_market_data(verbosity, market_data)
                 if data:
-                    console.print("[green]Got market data... updating layout[/green]")
                     renderable = create_layout(data)
                     live.update(renderable, refresh=True)
                 
@@ -326,21 +327,24 @@ if __name__ == "__main__":
     # Initialize console
     console = Console()
     
-    # Parse command line arguments
+    # Initialize argument parser
     parser = argparse.ArgumentParser(description='Paper Trader Market Data Terminal')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase verbosity level (-v for basic, -vv for detailed)')
+    parser.add_argument('-m', '--market-data', choices=['twelvedata', 'none'], default='twelvedata',
+                        help='Market data source to use (twelvedata or none)')
     args = parser.parse_args()
     
     # Set verbosity level (0-2)
-    verbosity = min(args.verbose, 2)
+    verbosity = args.verbose + 1
     
-    # Print welcome message with verbosity level
+    # Run the main function
+    main(verbosity, args.market_data)
     console.print("\n[bold magenta]Market Data Terminal[/bold magenta]")
     if verbosity >= 1:
         console.print(f"[cyan]Verbosity level: {verbosity}[/cyan]")
     
     try:
-        main(verbosity)
+        main(verbosity, args.market_data)
     except KeyboardInterrupt:
         console.print("\n[green]Exiting...[/green]")
