@@ -333,6 +333,39 @@ def remove_instrument(live):
         # Restart the main Live display
         live.start()
 
+def buy_instrument(live, trading_book, exchange, market_data_source, verbosity):
+    """Buy a product (instrument) and update trading book and display."""
+    # Temporarily stop the main Live display
+    live.stop()
+    try:
+        product = Prompt.ask("Enter product symbol to buy")
+        quantity = int(Prompt.ask("Enter quantity to buy"))
+        try:
+            # Get current market data
+            data = get_market_data(market_data_source, verbosity)
+            exchange.update_market_data(data)
+
+            # Create and execute order
+            order = Order(product, quantity, 'buy')
+            fill = exchange.execute_order(order)
+
+            # Update trading book
+            trading_book.cash -= fill.quantity * fill.price
+            trading_book.add_to_position(fill.product, fill.quantity)
+            trading_book.history.append(fill)
+
+            console.print(f"[green]Bought {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
+
+            # Update layout with new data and trading book
+            new_layout = update_display(data, trading_book)
+            if new_layout:
+                live.update(new_layout, refresh=True)
+        except Exception as e:
+            console.print(f"[red]Error buying: {str(e)}[/red]")
+    finally:
+        # Restart the main Live display
+        live.start()
+
 def main(market_data_source='twelvedata', verbosity=1):
     """Main application loop"""
     # Initialize trading book and exchange
@@ -374,33 +407,7 @@ def main(market_data_source='twelvedata', verbosity=1):
                         renderable = new_layout
                         live.update(renderable, refresh=True)
                 elif event.lower() == "b":
-                    # Buy product
-                    product = Prompt.ask("Enter product symbol to buy")
-                    quantity = int(Prompt.ask("Enter quantity to buy"))
-
-                    try:
-                        # Get current market data
-                        data = get_market_data(market_data_source, verbosity)
-                        exchange.update_market_data(data)
-
-                        # Create and execute order
-                        order = Order(product, quantity, 'buy')
-                        fill = exchange.execute_order(order)
-
-                        # Update trading book
-                        trading_book.cash -= fill.quantity * fill.price
-                        trading_book.add_to_position(fill.product, fill.quantity)
-                        trading_book.history.append(fill)
-
-                        console.print(f"[green]Bought {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
-
-                        # Update layout with new data and trading book
-                        new_layout = update_display(data, trading_book)
-                        if new_layout:
-                            renderable = new_layout
-                            live.update(renderable, refresh=True)
-                    except Exception as e:
-                        console.print(f"[red]Error buying: {str(e)}[/red]")
+                    buy_instrument(live, trading_book, exchange, market_data_source, verbosity)
                 elif event.lower() == "s":
                     # Sell product
                     product = Prompt.ask("Enter product symbol to sell")
