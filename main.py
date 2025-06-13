@@ -155,7 +155,7 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
         console.print(f"Full error details: {traceback.format_exc()}")
         return {}
 
-def create_layout(data, trading_book):
+def create_layout(market_data, trading_book):
     """Create a layout with separate panels for Forex, Commodities, Stocks, and Trading Book"""
     # Create tables for each category
     forex_table = Table(show_header=True, header_style="bold")
@@ -178,20 +178,20 @@ def create_layout(data, trading_book):
         if config['category'] == 'forex':
             forex_table.add_row(
                 config['symbol'],
-                str(data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
             )
         elif config['category'] == 'commodities':
             commodities_table.add_row(
                 config['symbol'],
-                str(data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
             )
         elif config['category'] == 'stocks':
             stocks_table.add_row(
                 config['symbol'],
-                str(data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
             )
 
     # Create trading book table
@@ -203,7 +203,7 @@ def create_layout(data, trading_book):
     # Add positions to trading table
     market_data = {}
     for product in trading_book.positions:
-        bid = data.get(f"{product}_bid", 'N/A')
+        bid = market_data.get(f"{product}_bid", 'N/A')
         if bid != 'N/A':
             market_data[product] = float(bid)
 
@@ -250,20 +250,20 @@ def create_layout(data, trading_book):
         if config['category'] == 'forex':
             forex_table.add_row(
                 config['symbol'],
-                str(data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
             )
         elif config['category'] == 'commodities':
             commodities_table.add_row(
                 config['symbol'],
-                str(data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
             )
         elif config['category'] == 'stocks':
             stocks_table.add_row(
                 config['symbol'],
-                str(data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
             )
 
     # Create panels for each table
@@ -279,12 +279,12 @@ def create_layout(data, trading_book):
     # Create the final layout with two rows
     return Group(top_row, bottom_row)
 
-def update_display(data, trading_book):
+def update_display(market_data, trading_book):
     """Update the display with current market data and trading book"""
-    return create_layout(data, trading_book)
+    return create_layout(market_data, trading_book)
 
 def add_instrument():
-    """Add a new instrument"""
+    """Add a new instrument."""
     console.print("\n[bold]Add Instrument[/bold]")
     symbol = console.input("Enter symbol (e.g. EUR/USD): ")
     name = console.input("Enter name/description: ")
@@ -298,10 +298,10 @@ def add_instrument():
 
     INSTRUMENTS.append({"symbol": symbol, "name": name, "category": category})
     console.print(f"[green]Added {symbol} - {name} (Category: {category})[/green]")
-    # Return None to indicate no new layout
+    # No need to return a layout
 
 def remove_instrument():
-    """Remove an existing instrument"""
+    """Remove an existing instrument."""
     console.print("\n[bold]Remove Instrument[/bold]")
     console.print("Available instruments:")
     for config in INSTRUMENTS:
@@ -311,26 +311,25 @@ def remove_instrument():
     while True:
         choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
         if choice.lower() == 'q':
-            return
+            return None
 
         # Find the instrument by symbol
         for i, config in enumerate(INSTRUMENTS):
             if config['symbol'] == choice:
                 removed_config = INSTRUMENTS.pop(i)
                 console.print(f"[green]Removed {removed_config['symbol']} - {removed_config['name']} (Category: {removed_config['category']})[/green]")
-                return
+                return None
 
         console.print("[yellow]Invalid symbol. Please try again or enter 'q' to cancel.[/yellow]")
-    # Return None to indicate no new layout
 
 def buy_instrument(trading_book, exchange, market_data_source, verbosity):
-    """Buy a product (instrument) and update trading book and display."""
+    """Buy a product (instrument) and update trading book."""
     product = Prompt.ask("Enter product symbol to buy")
     quantity = int(Prompt.ask("Enter quantity to buy"))
     try:
         # Get current market data
-        data = get_market_data(market_data_source, verbosity)
-        exchange.update_market_data(data)
+        market_data = get_market_data(market_data_source, verbosity)
+        exchange.update_market_data(market_data)
 
         # Create and execute order
         order = Order(product, quantity, 'buy')
@@ -342,21 +341,17 @@ def buy_instrument(trading_book, exchange, market_data_source, verbosity):
         trading_book.history.append(fill)
 
         console.print(f"[green]Bought {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
-
-        # Update layout with new data and trading book
-        return update_display(data, trading_book)
     except Exception as e:
         console.print(f"[red]Error buying: {str(e)}[/red]")
-        return None
 
 def sell_instrument(trading_book, exchange, market_data_source, verbosity):
-    """Sell a product (instrument) and update trading book and display."""
+    """Sell a product (instrument) and update trading book."""
     product = Prompt.ask("Enter product symbol to sell")
     quantity = int(Prompt.ask("Enter quantity to sell"))
     try:
         # Get current market data
-        data = get_market_data(market_data_source, verbosity)
-        exchange.update_market_data(data)
+        market_data = get_market_data(market_data_source, verbosity)
+        exchange.update_market_data(market_data)
 
         # Create and execute order
         order = Order(product, quantity, 'sell')
@@ -368,12 +363,8 @@ def sell_instrument(trading_book, exchange, market_data_source, verbosity):
         trading_book.history.append(fill)
 
         console.print(f"[green]Sold {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
-
-        # Update layout with new data and trading book
-        return update_display(data, trading_book)
     except Exception as e:
         console.print(f"[red]Error selling: {str(e)}[/red]")
-        return None
 
 def with_live_update(live, func, *args, **kwargs):
     """Wrapper to handle live.stop(), live.start(), and live.update() for UI actions."""
@@ -392,8 +383,8 @@ def main(market_data_source='twelvedata', verbosity=1):
     exchange = Exchange({})
 
     # Create initial layout
-    data = get_market_data(market_data_source, verbosity)
-    layout = create_layout(data, trading_book)
+    market_data = get_market_data(market_data_source, verbosity)
+    layout = create_layout(market_data, trading_book)
 
     # Create a single renderable that we'll update
     renderable = layout
@@ -409,18 +400,8 @@ def main(market_data_source='twelvedata', verbosity=1):
 
                 if event.lower() == "a":
                     with_live_update(live, add_instrument)
-                    # Create a new layout with updated data
-                    new_layout = update_display(get_market_data(market_data_source, verbosity), trading_book)
-                    if new_layout:
-                        renderable = new_layout
-                        live.update(renderable, refresh=True)
                 elif event.lower() == "r":
                     with_live_update(live, remove_instrument)
-                    # Create a new layout with updated data
-                    new_layout = update_display(get_market_data(market_data_source, verbosity), trading_book)
-                    if new_layout:
-                        renderable = new_layout
-                        live.update(renderable, refresh=True)
                 elif event.lower() == "b":
                     with_live_update(live, buy_instrument, trading_book, exchange, market_data_source, verbosity)
                 elif event.lower() == "s":
@@ -430,10 +411,10 @@ def main(market_data_source='twelvedata', verbosity=1):
                     break
 
                 # Update the existing layout with new data
-                data = get_market_data(market_data_source, verbosity)
-                if data:
-                    exchange.update_market_data(data)
-                    renderable = create_layout(data, trading_book)
+                market_data = get_market_data(market_data_source, verbosity)
+                if market_data:
+                    exchange.update_market_data(market_data)
+                    renderable = create_layout(market_data, trading_book)
                     live.update(renderable, refresh=True)
 
             except KeyboardInterrupt:
