@@ -1,17 +1,28 @@
+# Standard library imports
 import os
+import argparse
+import time
+import traceback
+from threading import Thread
+from typing import Dict, Any
+
+# Third-party imports
 from dotenv import load_dotenv
-from rich.console import Console
+from rich.console import Console, Group
 from rich.columns import Columns
-from rich.panel import Panel
-from rich.console import Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
 from rich.text import Text
 from rich.prompt import Prompt
-import time
+from rich.align import Align
+from rich.layout import Layout
 from twelvedata import TDClient
-import argparse
+from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
+
+# Local imports
+from rate_limiter import RateLimiter
+from trading import TradingBook, Exchange, Order, Fill
 
 # Rate limiting constants
 MAX_CALLS_PER_MINUTE = 8
@@ -57,14 +68,14 @@ DEFAULT_INSTRUMENTS = [
     {"symbol": "EUR/USD", "name": "Euro - US Dollar exchange rate", "category": "forex"},
     {"symbol": "GBP/USD", "name": "British Pound - US Dollar exchange rate", "category": "forex"},
     {"symbol": "USD/JPY", "name": "US Dollar - Japanese Yen exchange rate", "category": "forex"},
-    
+
     # Commodities
     {"symbol": "XAU/USD", "name": "Gold", "category": "commodities"},
     # Silver is not in our API plan
     # {"symbol": "XAG/USD", "name": "Silver", "category": "commodities"},
     # Crude oil is not in our API plan
     # {"symbol": "CL1", "name": "Crude Oil", "category": "commodities"},
-    
+
     # Stocks
     {"symbol": "AAPL", "name": "Apple Inc.", "category": "stocks"},
     {"symbol": "GOOGL", "name": "Alphabet Inc. (Google)", "category": "stocks"},
@@ -75,23 +86,36 @@ DEFAULT_INSTRUMENTS = [
 
 INSTRUMENTS = DEFAULT_INSTRUMENTS.copy()
 
-def get_market_data(verbosity=1, market_data='twelvedata'):
-    """Fetch market data from Twelve Data API or return default NA values"""
-    if market_data == 'none':
-        # Return default NA values for all instruments
+import random
+
+def get_market_data(market_data_source='twelvedata', verbosity=1):
+    """Fetch market data from Twelve Data API or return random prices when in none mode"""
+    if market_data_source == 'none':
+        # Generate random prices for all instruments
         data = {}
         for instrument in INSTRUMENTS:
-            data[f"{instrument['symbol']}_bid"] = 'N/A'
-            data[f"{instrument['symbol']}_ask"] = 'N/A'
+            # Generate a random base price between $1 and $100
+            base_price = random.uniform(1, 100)
+            # Generate bid and ask prices with bid slightly lower than ask
+            bid = round(base_price - random.uniform(0, 1), 2)
+            ask = round(base_price + random.uniform(0, 1), 2)
+
+            data[f"{instrument['symbol'].upper()}_bid"] = bid
+            data[f"{instrument['symbol'].upper()}_ask"] = ask
         return data
 
-    rate_limiter.wait_if_needed()
 
+    rate_limiter.wait_if_needed()
     try:
-        # Check credit usage first
-        credit_usage = client.api_usage()
-        if credit_usage:
-            usage_data = credit_usage.as_json()
+        usage_endpoint = APIUsageEndpoint(client)
+        usage_data = usage_endpoint.get().as_json()
+
+
+        if verbosity >= 2:
+            console.print(f"API Usage: {usage_data['credits_used']}/{usage_data['credits_total']}")
+            if usage_data['credits_used'] >= usage_data['credits_total']:
+                console.print("[red]WARNING: API credits are exhausted[/red]")
+
             console.print(
                 f"[cyan]Current API credit usage: {usage_data.get('current_usage', 'N/A')}/{usage_data.get('plan_limit', 'N/A')}" + \
                     f"; Daily API credit usage: {usage_data.get('daily_usage', 'N/A')}/{usage_data.get('plan_daily_limit', 'N/A')} [/cyan]")
@@ -100,59 +124,39 @@ def get_market_data(verbosity=1, market_data='twelvedata'):
                 console.print("[red]No credits remaining! Please upgrade your plan or wait for credits to reset.[/red]")
                 return {}
 
+        # Fetch market data for each instrument
         data = {}
-        
-        # Fetch data for each instrument
         for instrument in INSTRUMENTS:
-            # Wait if we've hit the rate limit
-            rate_limiter.wait_if_needed()
+            ts_endpoint = TimeSeriesEndpoint(client)
+            ts_endpoint.init(
+                symbol=instrument['symbol'],
+                interval="1min",
+                outputsize=1,
+                timezone="UTC"
+            )
 
-            if verbosity >= 2:
-                console.print(f"[yellow]Fetching data for {instrument['symbol']}...[/yellow]")
-
-            # Get time series data
             try:
-                ts = client.time_series(
-                    symbol=instrument["symbol"],
-                    interval="1min",
-                    outputsize=1
-                )
-                
-                if ts:
-                    json_data = ts.as_json()
-                    if isinstance(json_data, tuple) and len(json_data) > 0:
-                        if verbosity >= 2:
-                            console.print(f"[green]Received data for {instrument['symbol']}[/green]")
-                        # Extract last price as bid/ask (for simplicity)
-                        last_price = json_data[0]["close"]
-                        
-                        # Store in data dictionary
-                        data[f"{instrument['symbol']}_bid"] = last_price
-                        data[f"{instrument['symbol']}_ask"] = last_price
-                    else:
-                        console.print(f"[red]No data points received for {instrument['symbol']}[/red]")
+                df = ts_endpoint.get().as_json()
+                if len(df) > 0:
+                    data[f"{instrument['symbol'].upper()}_bid"] = float(df[0]['high'])
+                    data[f"{instrument['symbol'].upper()}_ask"] = float(df[0]['low'])
                 else:
-                    console.print(f"[red]No time series object received for {instrument['symbol']}[/red]")
+                    data[f"{instrument['symbol'].upper()}_bid"] = 'N/A'
+                    data[f"{instrument['symbol'].upper()}_ask"] = 'N/A'
             except Exception as e:
-                console.print(f"[red]Error fetching data for {instrument['symbol']}: {str(e)}[/red]")
-                import traceback
-                console.print(f"[red]Full error details: {traceback.format_exc()}[/red]")
+                if verbosity >= 1:
+                    console.print(f"Error fetching {instrument['symbol']}: {str(e)}")
+                    data[f"{instrument['symbol'].upper()}_bid"] = 'N/A'
+                    data[f"{instrument['symbol'].upper()}_ask"] = 'N/A'
 
-        if not data:
-            console.print("[red]No market data received from API[/red]")
-        else:
-            if verbosity >= 2:
-                console.print("[green]Successfully fetched market data[/green]")
-        
         return data
     except Exception as e:
-        console.print(f"[red]Error fetching data: {str(e)}[/red]")
-        import traceback
-        console.print(f"[red]Full error details: {traceback.format_exc()}[/red]")
+        console.print(f"Error fetching data: {str(e)}")
+        console.print(f"Full error details: {traceback.format_exc()}")
         return {}
 
-def create_layout(data):
-    """Create a layout with separate panels for Forex, Commodities, and Stocks"""
+def create_layout(data, trading_book):
+    """Create a layout with separate panels for Forex, Commodities, Stocks, and Trading Book"""
     # Create tables for each category
     forex_table = Table(show_header=True, header_style="bold")
     forex_table.add_column("Instrument", style="cyan", no_wrap=True)
@@ -169,13 +173,79 @@ def create_layout(data):
     stocks_table.add_column("Bid", style="green")
     stocks_table.add_column("Ask", style="red")
 
+    # Add data to market tables
+    for config in INSTRUMENTS:
+        if config['category'] == 'forex':
+            forex_table.add_row(
+                config['symbol'],
+                str(data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+            )
+        elif config['category'] == 'commodities':
+            commodities_table.add_row(
+                config['symbol'],
+                str(data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+            )
+        elif config['category'] == 'stocks':
+            stocks_table.add_row(
+                config['symbol'],
+                str(data.get(f"{config['symbol']}_bid", 'N/A')),
+                str(data.get(f"{config['symbol']}_ask", 'N/A'))
+            )
+
+    # Create trading book table
+    trading_table = Table(show_header=True, header_style="bold")
+    trading_table.add_column("Product", style="cyan", no_wrap=True)
+    trading_table.add_column("Quantity", style="yellow")
+    trading_table.add_column("Value", style="green")
+
+    # Add positions to trading table
+    market_data = {}
+    for product in trading_book.positions:
+        bid = data.get(f"{product}_bid", 'N/A')
+        if bid != 'N/A':
+            market_data[product] = float(bid)
+
+    total_value = trading_book.get_total_value(market_data)
+
+    for product, quantity in trading_book.positions.items():
+        bid = market_data.get(product, 0.0)
+        value = quantity * bid
+        trading_table.add_row(
+            product,
+            str(quantity),
+            f"${value:.2f}"
+        )
+
+    # Add cash balance
+    trading_table.add_row("Cash", "-", f"${trading_book.cash:.2f}")
+    trading_table.add_row("Total Value", "-", f"${total_value:.2f}")
+
+    # Create controls panel
     controls_table = Table(show_header=False)
     controls_table.add_column("Menu", style="cyan", no_wrap=True)
     controls_table.add_row("- a - Add instrument")
     controls_table.add_row("- r - Remove instrument")
+    controls_table.add_row("- b - Buy product")
+    controls_table.add_row("- s - Sell product")
     controls_table.add_row("- q - Quit")
+    controls_panel = Panel(controls_table, title="Controls", border_style="green")
 
-    # Add data to tables
+    # Create panels for each table
+    forex_panel = Panel(forex_table, title="Forex", border_style="green")
+    commodities_panel = Panel(commodities_table, title="Commodities", border_style="green")
+    stocks_panel = Panel(stocks_table, title="Stocks", border_style="green")
+    trading_panel = Panel(trading_table, title="Trading Book", border_style="green")
+
+    # Create columns for each row
+    top_row = Columns([forex_panel, commodities_panel], equal=True)
+    bottom_row = Columns([stocks_panel, trading_panel], equal=True)
+
+    # Create the final layout with three rows
+    return Group(top_row, bottom_row, controls_panel)
+
+    # Add data to market tables
     for config in INSTRUMENTS:
         if config['category'] == 'forex':
             forex_table.add_row(
@@ -200,25 +270,18 @@ def create_layout(data):
     forex_panel = Panel(forex_table, title="Forex", border_style="cyan")
     commodities_panel = Panel(commodities_table, title="Commodities", border_style="yellow")
     stocks_panel = Panel(stocks_table, title="Stocks", border_style="magenta")
-
-    # Create controls panel
-    controls_table = Table(show_header=False)
-    controls_table.add_column("Menu", style="cyan", no_wrap=True)
-    controls_table.add_row("- a - Add instrument")
-    controls_table.add_row("- r - Remove instrument")
-    controls_table.add_row("- q - Quit")
-    controls_panel = Panel(controls_table, title="Controls", border_style="green")
+    trading_panel = Panel(trading_table, title="Trading Book", border_style="green")
 
     # Create columns for each row
     top_row = Columns([forex_panel, commodities_panel], equal=True)
-    bottom_row = Columns([stocks_panel, controls_panel], equal=True)
+    bottom_row = Columns([stocks_panel, trading_panel], equal=True)
 
     # Create the final layout with two rows
     return Group(top_row, bottom_row)
 
-def update_display(data):
-    """Update the display with current market data"""
-    return create_layout(data)
+def update_display(data, trading_book):
+    """Update the display with current market data and trading book"""
+    return create_layout(data, trading_book)
 
 def add_instrument(live):
     """Add a new instrument"""
@@ -228,14 +291,14 @@ def add_instrument(live):
         console.print("\n[bold]Add Instrument[/bold]")
         symbol = console.input("Enter symbol (e.g. EUR/USD): ")
         name = console.input("Enter name/description: ")
-        
+
         # Loop until we get a valid category
         while True:
             category = console.input("Enter category (forex/commodities/stocks): ").lower()
             if category in ["forex", "commodities", "stocks"]:
                 break
             console.print("[yellow]Oops! Please enter either 'forex', 'commodities', or 'stocks'.[/yellow]")
-        
+
         INSTRUMENTS.append({"symbol": symbol, "name": name, "category": category})
         console.print(f"[green]Added {symbol} - {name} (Category: {category})[/green]")
     finally:
@@ -251,71 +314,132 @@ def remove_instrument(live):
         console.print("Available instruments:")
         for config in INSTRUMENTS:
             console.print(f"{config['symbol']} - {config['name']} (Category: {config['category']})")
-        
+
         # Keep asking until we get a valid symbol or user cancels
         while True:
             choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
             if choice.lower() == 'q':
                 return
-                
+
             # Find the instrument by symbol
             for i, config in enumerate(INSTRUMENTS):
                 if config['symbol'] == choice:
                     removed_config = INSTRUMENTS.pop(i)
                     console.print(f"[green]Removed {removed_config['symbol']} - {removed_config['name']} (Category: {removed_config['category']})[/green]")
                     return
-            
+
             console.print("[yellow]Invalid symbol. Please try again or enter 'q' to cancel.[/yellow]")
     finally:
         # Restart the main Live display
         live.start()
 
-def main(verbosity=1, market_data='twelvedata'):
+def main(market_data_source='twelvedata', verbosity=1):
     """Main application loop"""
+    # Initialize trading book and exchange
+    trading_book = TradingBook()
+    exchange = Exchange({})
+
     # Create initial layout
-    data = get_market_data(verbosity, market_data)
-    layout = create_layout(data)
-    
+    data = get_market_data(market_data_source, verbosity)
+    layout = create_layout(data, trading_book)
+
     # Create a single renderable that we'll update
     renderable = layout
-    
+
     # Print header once
-    console.print("Press 'a' to add instrument, 'r' to remove, 'q' to quit")
-    
+    console.print("Press 'b' to buy, 's' to sell, 'a' to add instrument, 'r' to remove instrument, 'q' to quit")
+
     with Live(renderable, console=console, auto_refresh=False) as live:
         while True:
             try:
                 # Wait for user input
                 event = Prompt.ask("\n")
-                
+
                 if event.lower() == "a":
                     # First add the instrument
                     add_instrument(live)
-                    
+
                     # Create a new layout with updated data
-                    new_layout = update_display(get_market_data(verbosity, market_data))
+                    new_layout = update_display(get_market_data(market_data_source, verbosity), trading_book)
                     if new_layout:
                         renderable = new_layout
                         live.update(renderable, refresh=True)
                 elif event.lower() == "r":
                     # First remove the instrument
                     remove_instrument(live)
-                    
+
                     # Create a new layout with updated data
-                    new_layout = update_display(get_market_data(verbosity, market_data))
+                    new_layout = update_display(get_market_data(market_data_source, verbosity), trading_book)
                     if new_layout:
                         renderable = new_layout
                         live.update(renderable, refresh=True)
+                elif event.lower() == "b":
+                    # Buy product
+                    product = Prompt.ask("Enter product symbol to buy")
+                    quantity = int(Prompt.ask("Enter quantity to buy"))
+
+                    try:
+                        # Get current market data
+                        data = get_market_data(market_data_source, verbosity)
+                        exchange.update_market_data(data)
+
+                        # Create and execute order
+                        order = Order(product, quantity, 'buy')
+                        fill = exchange.execute_order(order)
+
+                        # Update trading book
+                        trading_book.cash -= fill.quantity * fill.price
+                        trading_book.add_to_position(fill.product, fill.quantity)
+                        trading_book.history.append(fill)
+
+                        console.print(f"[green]Bought {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
+
+                        # Update layout with new data and trading book
+                        new_layout = update_display(data, trading_book)
+                        if new_layout:
+                            renderable = new_layout
+                            live.update(renderable, refresh=True)
+                    except Exception as e:
+                        console.print(f"[red]Error buying: {str(e)}[/red]")
+                elif event.lower() == "s":
+                    # Sell product
+                    product = Prompt.ask("Enter product symbol to sell")
+                    quantity = int(Prompt.ask("Enter quantity to sell"))
+
+                    try:
+                        # Get current market data
+                        data = get_market_data(market_data_source, verbosity)
+                        exchange.update_market_data(data)
+
+                        # Create and execute order
+                        order = Order(product, quantity, 'sell')
+                        fill = exchange.execute_order(order)
+
+                        # Update trading book
+                        trading_book.cash += fill.quantity * fill.price
+                        trading_book.remove_from_position(fill.product, fill.quantity)
+                        trading_book.history.append(fill)
+
+                        console.print(f"[green]Sold {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
+
+                        # Update layout with new data and trading book
+                        new_layout = update_display(data, trading_book)
+                        if new_layout:
+                            renderable = new_layout
+                            live.update(renderable, refresh=True)
+                    except Exception as e:
+                        console.print(f"[red]Error selling: {str(e)}[/red]")
                 elif event.lower() == "q":
                     console.print("\n[green]Exiting...[/green]")
                     break
-                
+
                 # Update the existing layout with new data
-                data = get_market_data(verbosity, market_data)
+                data = get_market_data(market_data_source, verbosity)
                 if data:
-                    renderable = create_layout(data)
+                    exchange.update_market_data(data)
+                    renderable = create_layout(data, trading_book)
                     live.update(renderable, refresh=True)
-                
+
             except KeyboardInterrupt:
                 console.print("\n[green]Exiting...[/green]")
                 break
@@ -326,25 +450,24 @@ def main(verbosity=1, market_data='twelvedata'):
 if __name__ == "__main__":
     # Initialize console
     console = Console()
-    
-    # Initialize argument parser
+
+    # Parse command line arguments
     parser = argparse.ArgumentParser(description='Paper Trader Market Data Terminal')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase verbosity level (-v for basic, -vv for detailed)')
-    parser.add_argument('-m', '--market-data', choices=['twelvedata', 'none'], default='twelvedata',
-                        help='Market data source to use (twelvedata or none)')
+    parser.add_argument('-m', '--market-data-source', default='twelvedata',
+                        help='Market data source (twelvedata or none)')
     args = parser.parse_args()
-    
+
     # Set verbosity level (0-2)
     verbosity = args.verbose + 1
-    
-    # Run the main function
-    main(verbosity, args.market_data)
+
+    main(args.market_data_source, verbosity)
     console.print("\n[bold magenta]Market Data Terminal[/bold magenta]")
     if verbosity >= 1:
         console.print(f"[cyan]Verbosity level: {verbosity}[/cyan]")
-    
+
     try:
-        main(verbosity, args.market_data)
+        main(args.market_data_source, verbosity)
     except KeyboardInterrupt:
         console.print("\n[green]Exiting...[/green]")

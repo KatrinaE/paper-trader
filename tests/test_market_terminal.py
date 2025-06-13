@@ -120,10 +120,10 @@ def test_create_layout():
 
             # Verify table rows
             assert len(forex_table.rows) == 2
-            
+
             # Create a console to render the table
             console = Console()
-            
+
             # Verify EUR/USD row
             with console.capture() as capture:
                 console.print(forex_table)
