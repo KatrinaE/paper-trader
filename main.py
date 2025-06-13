@@ -52,10 +52,6 @@ class RateLimiter:
 # Load environment variables
 load_dotenv()
 
-# Initialize API client
-API_KEY = os.getenv("API_KEY")
-client = TDClient(apikey=API_KEY)
-
 # Initialize rate limiter
 rate_limiter = RateLimiter(MAX_CALLS_PER_MINUTE, CALL_WINDOW_SECONDS)
 
@@ -391,6 +387,11 @@ def main(market_data_source='twelvedata', verbosity=1):
 
     # Print header once
     console.print("Press 'b' to buy, 's' to sell, 'a' to add instrument, 'r' to remove instrument, 'q' to quit")
+
+    # Initialize API client
+    if market_data_source == 'twelvedata':
+        API_KEY = os.getenv("API_KEY")
+        client = TDClient(apikey=API_KEY)
 
     with Live(renderable, console=console, auto_refresh=False) as live:
         while True:
