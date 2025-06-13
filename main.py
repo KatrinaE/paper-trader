@@ -366,6 +366,39 @@ def buy_instrument(live, trading_book, exchange, market_data_source, verbosity):
         # Restart the main Live display
         live.start()
 
+def sell_instrument(live, trading_book, exchange, market_data_source, verbosity):
+    """Sell a product (instrument) and update trading book and display."""
+    # Temporarily stop the main Live display
+    live.stop()
+    try:
+        product = Prompt.ask("Enter product symbol to sell")
+        quantity = int(Prompt.ask("Enter quantity to sell"))
+        try:
+            # Get current market data
+            data = get_market_data(market_data_source, verbosity)
+            exchange.update_market_data(data)
+
+            # Create and execute order
+            order = Order(product, quantity, 'sell')
+            fill = exchange.execute_order(order)
+
+            # Update trading book
+            trading_book.cash += fill.quantity * fill.price
+            trading_book.remove_from_position(fill.product, fill.quantity)
+            trading_book.history.append(fill)
+
+            console.print(f"[green]Sold {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
+
+            # Update layout with new data and trading book
+            new_layout = update_display(data, trading_book)
+            if new_layout:
+                live.update(new_layout, refresh=True)
+        except Exception as e:
+            console.print(f"[red]Error selling: {str(e)}[/red]")
+    finally:
+        # Restart the main Live display
+        live.start()
+
 def main(market_data_source='twelvedata', verbosity=1):
     """Main application loop"""
     # Initialize trading book and exchange
@@ -409,33 +442,7 @@ def main(market_data_source='twelvedata', verbosity=1):
                 elif event.lower() == "b":
                     buy_instrument(live, trading_book, exchange, market_data_source, verbosity)
                 elif event.lower() == "s":
-                    # Sell product
-                    product = Prompt.ask("Enter product symbol to sell")
-                    quantity = int(Prompt.ask("Enter quantity to sell"))
-
-                    try:
-                        # Get current market data
-                        data = get_market_data(market_data_source, verbosity)
-                        exchange.update_market_data(data)
-
-                        # Create and execute order
-                        order = Order(product, quantity, 'sell')
-                        fill = exchange.execute_order(order)
-
-                        # Update trading book
-                        trading_book.cash += fill.quantity * fill.price
-                        trading_book.remove_from_position(fill.product, fill.quantity)
-                        trading_book.history.append(fill)
-
-                        console.print(f"[green]Sold {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
-
-                        # Update layout with new data and trading book
-                        new_layout = update_display(data, trading_book)
-                        if new_layout:
-                            renderable = new_layout
-                            live.update(renderable, refresh=True)
-                    except Exception as e:
-                        console.print(f"[red]Error selling: {str(e)}[/red]")
+                    sell_instrument(live, trading_book, exchange, market_data_source, verbosity)
                 elif event.lower() == "q":
                     console.print("\n[green]Exiting...[/green]")
                     break
