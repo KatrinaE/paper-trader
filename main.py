@@ -283,120 +283,106 @@ def update_display(data, trading_book):
     """Update the display with current market data and trading book"""
     return create_layout(data, trading_book)
 
-def add_instrument(live):
+def add_instrument():
     """Add a new instrument"""
-    # Temporarily stop the main Live display
-    live.stop()
-    try:
-        console.print("\n[bold]Add Instrument[/bold]")
-        symbol = console.input("Enter symbol (e.g. EUR/USD): ")
-        name = console.input("Enter name/description: ")
+    console.print("\n[bold]Add Instrument[/bold]")
+    symbol = console.input("Enter symbol (e.g. EUR/USD): ")
+    name = console.input("Enter name/description: ")
 
-        # Loop until we get a valid category
-        while True:
-            category = console.input("Enter category (forex/commodities/stocks): ").lower()
-            if category in ["forex", "commodities", "stocks"]:
-                break
-            console.print("[yellow]Oops! Please enter either 'forex', 'commodities', or 'stocks'.[/yellow]")
+    # Loop until we get a valid category
+    while True:
+        category = console.input("Enter category (forex/commodities/stocks): ").lower()
+        if category in ["forex", "commodities", "stocks"]:
+            break
+        console.print("[yellow]Oops! Please enter either 'forex', 'commodities', or 'stocks'.[/yellow]")
 
-        INSTRUMENTS.append({"symbol": symbol, "name": name, "category": category})
-        console.print(f"[green]Added {symbol} - {name} (Category: {category})[/green]")
-    finally:
-        # Restart the main Live display
-        live.start()
+    INSTRUMENTS.append({"symbol": symbol, "name": name, "category": category})
+    console.print(f"[green]Added {symbol} - {name} (Category: {category})[/green]")
+    # Return None to indicate no new layout
 
-def remove_instrument(live):
+def remove_instrument():
     """Remove an existing instrument"""
-    # Temporarily stop the main Live display
-    live.stop()
-    try:
-        console.print("\n[bold]Remove Instrument[/bold]")
-        console.print("Available instruments:")
-        for config in INSTRUMENTS:
-            console.print(f"{config['symbol']} - {config['name']} (Category: {config['category']})")
+    console.print("\n[bold]Remove Instrument[/bold]")
+    console.print("Available instruments:")
+    for config in INSTRUMENTS:
+        console.print(f"{config['symbol']} - {config['name']} (Category: {config['category']})")
 
-        # Keep asking until we get a valid symbol or user cancels
-        while True:
-            choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
-            if choice.lower() == 'q':
+    # Keep asking until we get a valid symbol or user cancels
+    while True:
+        choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
+        if choice.lower() == 'q':
+            return
+
+        # Find the instrument by symbol
+        for i, config in enumerate(INSTRUMENTS):
+            if config['symbol'] == choice:
+                removed_config = INSTRUMENTS.pop(i)
+                console.print(f"[green]Removed {removed_config['symbol']} - {removed_config['name']} (Category: {removed_config['category']})[/green]")
                 return
 
-            # Find the instrument by symbol
-            for i, config in enumerate(INSTRUMENTS):
-                if config['symbol'] == choice:
-                    removed_config = INSTRUMENTS.pop(i)
-                    console.print(f"[green]Removed {removed_config['symbol']} - {removed_config['name']} (Category: {removed_config['category']})[/green]")
-                    return
+        console.print("[yellow]Invalid symbol. Please try again or enter 'q' to cancel.[/yellow]")
+    # Return None to indicate no new layout
 
-            console.print("[yellow]Invalid symbol. Please try again or enter 'q' to cancel.[/yellow]")
-    finally:
-        # Restart the main Live display
-        live.start()
-
-def buy_instrument(live, trading_book, exchange, market_data_source, verbosity):
+def buy_instrument(trading_book, exchange, market_data_source, verbosity):
     """Buy a product (instrument) and update trading book and display."""
-    # Temporarily stop the main Live display
-    live.stop()
+    product = Prompt.ask("Enter product symbol to buy")
+    quantity = int(Prompt.ask("Enter quantity to buy"))
     try:
-        product = Prompt.ask("Enter product symbol to buy")
-        quantity = int(Prompt.ask("Enter quantity to buy"))
-        try:
-            # Get current market data
-            data = get_market_data(market_data_source, verbosity)
-            exchange.update_market_data(data)
+        # Get current market data
+        data = get_market_data(market_data_source, verbosity)
+        exchange.update_market_data(data)
 
-            # Create and execute order
-            order = Order(product, quantity, 'buy')
-            fill = exchange.execute_order(order)
+        # Create and execute order
+        order = Order(product, quantity, 'buy')
+        fill = exchange.execute_order(order)
 
-            # Update trading book
-            trading_book.cash -= fill.quantity * fill.price
-            trading_book.add_to_position(fill.product, fill.quantity)
-            trading_book.history.append(fill)
+        # Update trading book
+        trading_book.cash -= fill.quantity * fill.price
+        trading_book.add_to_position(fill.product, fill.quantity)
+        trading_book.history.append(fill)
 
-            console.print(f"[green]Bought {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
+        console.print(f"[green]Bought {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
 
-            # Update layout with new data and trading book
-            new_layout = update_display(data, trading_book)
-            if new_layout:
-                live.update(new_layout, refresh=True)
-        except Exception as e:
-            console.print(f"[red]Error buying: {str(e)}[/red]")
-    finally:
-        # Restart the main Live display
-        live.start()
+        # Update layout with new data and trading book
+        return update_display(data, trading_book)
+    except Exception as e:
+        console.print(f"[red]Error buying: {str(e)}[/red]")
+        return None
 
-def sell_instrument(live, trading_book, exchange, market_data_source, verbosity):
+def sell_instrument(trading_book, exchange, market_data_source, verbosity):
     """Sell a product (instrument) and update trading book and display."""
-    # Temporarily stop the main Live display
+    product = Prompt.ask("Enter product symbol to sell")
+    quantity = int(Prompt.ask("Enter quantity to sell"))
+    try:
+        # Get current market data
+        data = get_market_data(market_data_source, verbosity)
+        exchange.update_market_data(data)
+
+        # Create and execute order
+        order = Order(product, quantity, 'sell')
+        fill = exchange.execute_order(order)
+
+        # Update trading book
+        trading_book.cash += fill.quantity * fill.price
+        trading_book.remove_from_position(fill.product, fill.quantity)
+        trading_book.history.append(fill)
+
+        console.print(f"[green]Sold {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
+
+        # Update layout with new data and trading book
+        return update_display(data, trading_book)
+    except Exception as e:
+        console.print(f"[red]Error selling: {str(e)}[/red]")
+        return None
+
+def with_live_update(live, func, *args, **kwargs):
+    """Wrapper to handle live.stop(), live.start(), and live.update() for UI actions."""
     live.stop()
     try:
-        product = Prompt.ask("Enter product symbol to sell")
-        quantity = int(Prompt.ask("Enter quantity to sell"))
-        try:
-            # Get current market data
-            data = get_market_data(market_data_source, verbosity)
-            exchange.update_market_data(data)
-
-            # Create and execute order
-            order = Order(product, quantity, 'sell')
-            fill = exchange.execute_order(order)
-
-            # Update trading book
-            trading_book.cash += fill.quantity * fill.price
-            trading_book.remove_from_position(fill.product, fill.quantity)
-            trading_book.history.append(fill)
-
-            console.print(f"[green]Sold {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
-
-            # Update layout with new data and trading book
-            new_layout = update_display(data, trading_book)
-            if new_layout:
-                live.update(new_layout, refresh=True)
-        except Exception as e:
-            console.print(f"[red]Error selling: {str(e)}[/red]")
+        result = func(*args, **kwargs)
+        if result is not None:
+            live.update(result, refresh=True)
     finally:
-        # Restart the main Live display
         live.start()
 
 def main(market_data_source='twelvedata', verbosity=1):
@@ -422,27 +408,23 @@ def main(market_data_source='twelvedata', verbosity=1):
                 event = Prompt.ask("\n")
 
                 if event.lower() == "a":
-                    # First add the instrument
-                    add_instrument(live)
-
+                    with_live_update(live, add_instrument)
                     # Create a new layout with updated data
                     new_layout = update_display(get_market_data(market_data_source, verbosity), trading_book)
                     if new_layout:
                         renderable = new_layout
                         live.update(renderable, refresh=True)
                 elif event.lower() == "r":
-                    # First remove the instrument
-                    remove_instrument(live)
-
+                    with_live_update(live, remove_instrument)
                     # Create a new layout with updated data
                     new_layout = update_display(get_market_data(market_data_source, verbosity), trading_book)
                     if new_layout:
                         renderable = new_layout
                         live.update(renderable, refresh=True)
                 elif event.lower() == "b":
-                    buy_instrument(live, trading_book, exchange, market_data_source, verbosity)
+                    with_live_update(live, buy_instrument, trading_book, exchange, market_data_source, verbosity)
                 elif event.lower() == "s":
-                    sell_instrument(live, trading_book, exchange, market_data_source, verbosity)
+                    with_live_update(live, sell_instrument, trading_book, exchange, market_data_source, verbosity)
                 elif event.lower() == "q":
                     console.print("\n[green]Exiting...[/green]")
                     break
