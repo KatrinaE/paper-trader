@@ -51,7 +51,7 @@ class TestTradeProduct(unittest.TestCase):
         self.assertEqual(trading_book.cash, trading_book_fixture.cash - fill.quantity * fill.price)
         self.assertEqual(trading_book.positions, {product: quantity})
     
-        self.assertEqual(fill.action, fill_fixture.action)
+        self.assertEqual(fill.side, fill_fixture.side)
         self.assertEqual(fill.product, fill_fixture.product)
         self.assertEqual(fill.quantity, fill_fixture.quantity)
         self.assertNotEqual(fill.price, None)
@@ -77,7 +77,7 @@ class TestTradeProduct(unittest.TestCase):
         self.assertEqual(trading_book.cash, trading_book_fixture.cash + fill.quantity * fill.price)
         self.assertEqual(trading_book.positions, {product: quantity_fixture - quantity})
     
-        self.assertEqual(fill.action, fill_fixture.action)
+        self.assertEqual(fill.side, fill_fixture.side)
         self.assertEqual(fill.product, fill_fixture.product)
         self.assertEqual(fill.quantity, fill_fixture.quantity)
         self.assertNotEqual(fill.price, None)

@@ -7,14 +7,14 @@ class Order:
     """Represents a buy/sell order"""
     product: str
     quantity: int
-    action: str  # 'buy' or 'sell'
+    side: str  # 'buy' or 'sell'
 
 class Fill:
     """Represents the execution of an order"""
-    def __init__(self, product: str, quantity: int, action: str, price: float):
+    def __init__(self, product: str, quantity: int, side: str, price: float):
         self.product = product
         self.quantity = quantity
-        self.action = action
+        self.side = side
         self.price = price
         self.timestamp = datetime.now()
 
@@ -57,9 +57,9 @@ class Exchange:
     def execute_order(self, order: Order) -> Fill:
         """Execute an order using current market data"""
         price = None
-        if order.action == 'buy':
+        if order.side == 'buy':
             price = self.market_data.get(f"{order.product}_ask", None)
-        elif order.action == 'sell':
+        elif order.side == 'sell':
             price = self.market_data.get(f"{order.product}_bid", None)
 
         if price is None:
@@ -72,7 +72,7 @@ class Exchange:
             except ValueError:
                 raise ValueError(f"Invalid price format for {order.product}: {price}")
 
-        return Fill(order.product, order.quantity, order.action, price)
+        return Fill(order.product, order.quantity, order.side, price)
 
     def update_market_data(self, new_data: Dict[str, float]):
         """Update the market data"""
