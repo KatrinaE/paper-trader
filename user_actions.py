@@ -2,8 +2,8 @@ from rich.prompt import Prompt
 
 from products import PRODUCTS
 from market_data import get_market_data
-from trading import TradingBook, Exchange, Order, Fill
-
+from trading import Exchange, Order, Fill
+from trading_book import TradingBook
 BUY = 'buy'
 SELL = 'sell'
 
