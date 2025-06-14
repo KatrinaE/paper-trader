@@ -21,7 +21,7 @@ class TestAddProduct(unittest.TestCase):
         products_fixture.append(new_product)
         _add_product(new_product["symbol"], new_product["name"], new_product["category"])
         self.assertEqual(PRODUCTS, products_fixture)
- 
+
 class TestRemoveProduct(unittest.TestCase):
     def test_remove_forex(self):
         """
@@ -49,10 +49,10 @@ class TestTradeProduct(unittest.TestCase):
         fill_fixture = Fill(product, quantity, side, None)
 
         trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, side, verbosity)
-    
+
         self.assertEqual(trading_book.cash, trading_book_fixture.cash - fill.quantity * fill.price)
         self.assertEqual(trading_book.positions, {product: quantity})
-    
+
         self.assertEqual(fill.side, fill_fixture.side)
         self.assertEqual(fill.product, fill_fixture.product)
         self.assertEqual(fill.quantity, fill_fixture.quantity)
@@ -75,10 +75,10 @@ class TestTradeProduct(unittest.TestCase):
         fill_fixture = Fill(product, quantity, side, None)
 
         trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, side, verbosity)
-    
+
         self.assertEqual(trading_book.cash, trading_book_fixture.cash + fill.quantity * fill.price)
         self.assertEqual(trading_book.positions, {product: quantity_fixture - quantity})
-    
+
         self.assertEqual(fill.side, fill_fixture.side)
         self.assertEqual(fill.product, fill_fixture.product)
         self.assertEqual(fill.quantity, fill_fixture.quantity)

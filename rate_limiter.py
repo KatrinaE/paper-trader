@@ -1,3 +1,8 @@
+import logging
+
+# Configure rate limiter logger
+logger = logging.getLogger('rate_limiter')
+
 class RateLimiter:
     def __init__(self, max_calls, window_seconds):
         """Initialize rate limiter with maximum calls and window duration.
@@ -6,9 +11,12 @@ class RateLimiter:
             max_calls: Maximum number of calls allowed in the window
             window_seconds: Duration of the window in seconds
         """
+        logger.info(f"Initializing RateLimiter: max_calls={max_calls}, window_seconds={window_seconds}")
+        logger.info(f"Initializing RateLimiter: max_calls={max_calls}, window_seconds={window_seconds}")
         self.max_calls = max_calls
         self.window_seconds = window_seconds
         self.calls = []
+
 
     def wait_if_needed(self):
         """Wait if we've reached the rate limit.
@@ -27,8 +35,9 @@ class RateLimiter:
         if len(self.calls) >= self.max_calls:
             time_to_wait = self.calls[0] + self.window_seconds - now
             if time_to_wait > 0:
-                print(f"Rate limit reached. Waiting {time_to_wait:.1f} seconds...")
+                logger.warning(f"Rate limit reached. Waiting {time_to_wait:.1f} seconds...")
                 time.sleep(time_to_wait)
 
         # Record this call
         self.calls.append(time.time())
+        logger.debug(f"Call recorded, current calls in window: {len(self.calls)}")

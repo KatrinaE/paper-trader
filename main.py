@@ -6,6 +6,12 @@ import traceback
 from threading import Thread
 from typing import Dict, Any
 
+# Initialize logging
+from logging_config import logger
+
+# Configure logging
+logger.info("Starting paper_trader application")
+
 # Third-party imports
 from dotenv import load_dotenv
 from rich.console import Console, Group

@@ -1,6 +1,10 @@
+import logging
 from rich.prompt import Prompt
 
 from products import PRODUCTS
+
+# Configure user actions logger
+logger = logging.getLogger('user_actions')
 from market_data import get_market_data
 from exchange import Exchange
 from trading import Order, Fill
@@ -10,6 +14,7 @@ SELL = 'sell'
 
 def add_product(console):
     """Add a new product."""
+    logger.info("Starting add_product")
     console.print("\n[bold]Add Product[/bold]")
     symbol = console.input("Enter symbol (e.g. EUR/USD): ")
     name = console.input("Enter name/description: ")
@@ -22,6 +27,7 @@ def add_product(console):
         console.print("[yellow]Oops! Please enter either 'forex', 'commodities', or 'stocks'.[/yellow]")
 
     _add_product(symbol, name, category)
+    logger.info(f"Added product: {symbol} - {name} (Category: {category})")
     console.print(f"[green]Added {symbol} - {name} (Category: {category})[/green]")
     # No need to return a layout
 
@@ -29,6 +35,9 @@ def _add_product(symbol, name, category):
     PRODUCTS.append({"symbol": symbol, "name": name, "category": category})
 
 def remove_product(console):
+    """Remove an existing product."""
+    logger.info("Starting remove_product")
+    console.print("\n[bold]Remove Product[/bold]")
     """Remove an existing product."""
     console.print("\n[bold]Remove Product[/bold]")
     console.print("Available products:")
@@ -39,13 +48,16 @@ def remove_product(console):
     while True:
         choice = console.input("Enter symbol to remove (or 'q' to cancel): ")
         if choice.lower() == 'q':
+            logger.info("User cancelled remove product")
             return None
 
         try:
             removed_config = _remove_product(choice)
+            logger.info(f"Removed product: {removed_config['symbol']} - {removed_config['name']} (Category: {removed_config['category']})")
             console.print(f"[green]Removed {removed_config['symbol']} - {removed_config['name']} (Category: {removed_config['category']})[/green]")
             return None
         except ProductNotFoundError:
+            logger.info("Invalid symbol entered")
             console.print("[yellow]Invalid symbol. Please try again or enter 'q' to cancel.[/yellow]")
 
 class ProductNotFoundError:
@@ -59,6 +71,7 @@ def _remove_product(choice):
 
 def buy_product(trading_book, exchange, market_data_source, console, verbosity):
     """Buy a product (product) and update trading book."""
+    logger.info("Starting buy_product")
     product = Prompt.ask("Enter product symbol to buy")
     quantity = int(Prompt.ask("Enter quantity to buy"))
     try:
@@ -69,6 +82,8 @@ def buy_product(trading_book, exchange, market_data_source, console, verbosity):
         console.print(f"[red]Error buying: {str(e)}[/red]")
 
 def sell_product(trading_book, exchange, market_data_source, console, verbosity):
+    """Sell a product (product) and update trading book."""
+    logger.info("Starting sell_product")
     """Sell a product (product) and update trading book."""
     product = Prompt.ask("Enter product symbol to sell")
     quantity = int(Prompt.ask("Enter quantity to sell"))

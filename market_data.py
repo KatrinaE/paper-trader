@@ -1,9 +1,23 @@
 import random
+import math
+import logging
+from datetime import datetime
 
 from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
 
 from products import PRODUCTS
 from rate_limiter import RateLimiter
+
+# Configure logging
+# Configure logging to only use stream handler
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger('market_data')
 
 # Rate limiting constants
 MAX_CALLS_PER_MINUTE = 8
@@ -14,6 +28,8 @@ rate_limiter = RateLimiter(MAX_CALLS_PER_MINUTE, CALL_WINDOW_SECONDS)
 
 def get_market_data(market_data_source='twelvedata', verbosity=1):
     """Fetch market data from Twelve Data API or return random prices when in none mode"""
+    logger.info(f"Fetching market data (source={market_data_source}, verbosity={verbosity})")
+
     if market_data_source == 'none':
         # Generate random prices for all products
         data = {}
