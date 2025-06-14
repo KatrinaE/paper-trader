@@ -1,15 +1,15 @@
 from rich.prompt import Prompt
 
-from instruments import INSTRUMENTS
+from products import PRODUCTS
 from market_data import get_market_data
 from trading import TradingBook, Exchange, Order, Fill
 
 BUY = 'buy'
 SELL = 'sell'
 
-def add_instrument(console):
-    """Add a new instrument."""
-    console.print("\n[bold]Add Instrument[/bold]")
+def add_product(console):
+    """Add a new product."""
+    console.print("\n[bold]Add Product[/bold]")
     symbol = console.input("Enter symbol (e.g. EUR/USD): ")
     name = console.input("Enter name/description: ")
 
@@ -20,18 +20,18 @@ def add_instrument(console):
             break
         console.print("[yellow]Oops! Please enter either 'forex', 'commodities', or 'stocks'.[/yellow]")
 
-    _add_instrument(symbol, name, category)
+    _add_product(symbol, name, category)
     console.print(f"[green]Added {symbol} - {name} (Category: {category})[/green]")
     # No need to return a layout
 
-def _add_instrument(symbol, name, category):
-    INSTRUMENTS.append({"symbol": symbol, "name": name, "category": category})
+def _add_product(symbol, name, category):
+    PRODUCTS.append({"symbol": symbol, "name": name, "category": category})
 
-def remove_instrument(console):
-    """Remove an existing instrument."""
-    console.print("\n[bold]Remove Instrument[/bold]")
-    console.print("Available instruments:")
-    for config in INSTRUMENTS:
+def remove_product(console):
+    """Remove an existing product."""
+    console.print("\n[bold]Remove Product[/bold]")
+    console.print("Available products:")
+    for config in PRODUCTS:
         console.print(f"{config['symbol']} - {config['name']} (Category: {config['category']})")
 
     # Keep asking until we get a valid symbol or user cancels
@@ -41,7 +41,7 @@ def remove_instrument(console):
             return None
 
         try:
-            removed_config = _remove_instrument(choice)
+            removed_config = _remove_product(choice)
             console.print(f"[green]Removed {removed_config['symbol']} - {removed_config['name']} (Category: {removed_config['category']})[/green]")
             return None
         except ProductNotFoundError:
@@ -50,35 +50,35 @@ def remove_instrument(console):
 class ProductNotFoundError:
     pass
 
-def _remove_instrument(choice):
-    for i, config in enumerate(INSTRUMENTS):
+def _remove_product(choice):
+    for i, config in enumerate(PRODUCTS):
         if config['symbol'] == choice:
-            return INSTRUMENTS.pop(i)
+            return PRODUCTS.pop(i)
     raise ProductNotFoundError
 
-def buy_instrument(trading_book, exchange, market_data_source, console, verbosity):
-    """Buy a product (instrument) and update trading book."""
+def buy_product(trading_book, exchange, market_data_source, console, verbosity):
+    """Buy a product (product) and update trading book."""
     product = Prompt.ask("Enter product symbol to buy")
     quantity = int(Prompt.ask("Enter quantity to buy"))
     try:
-        trading_book, fill = _trade_instrument(market_data_source, exchange, trading_book, product, quantity, BUY, verbosity)
+        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, BUY, verbosity)
         console.print(f"[green]Bought {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
         return trading_book
     except Exception as e:
         console.print(f"[red]Error buying: {str(e)}[/red]")
 
-def sell_instrument(trading_book, exchange, market_data_source, console, verbosity):
-    """Sell a product (instrument) and update trading book."""
+def sell_product(trading_book, exchange, market_data_source, console, verbosity):
+    """Sell a product (product) and update trading book."""
     product = Prompt.ask("Enter product symbol to sell")
     quantity = int(Prompt.ask("Enter quantity to sell"))
     try:
-        trading_book, fill = _trade_instrument(market_data_source, exchange, trading_book, product, quantity, SELL, verbosity)
+        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, SELL, verbosity)
         console.print(f"[green]Sold {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
         return trading_book
     except Exception as e:
         console.print(f"[red]Error selling: {str(e)}[/red]")
 
-def _trade_instrument(market_data_source, exchange, trading_book, product, quantity, side, verbosity):
+def _trade_product(market_data_source, exchange, trading_book, product, quantity, side, verbosity):
      # Get current market data
     market_data = get_market_data(market_data_source, verbosity)
     exchange.update_market_data(market_data)

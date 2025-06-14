@@ -2,7 +2,7 @@ import random
 
 from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
 
-from instruments import INSTRUMENTS
+from products import PRODUCTS
 from rate_limiter import RateLimiter
 
 # Rate limiting constants
@@ -15,17 +15,17 @@ rate_limiter = RateLimiter(MAX_CALLS_PER_MINUTE, CALL_WINDOW_SECONDS)
 def get_market_data(market_data_source='twelvedata', verbosity=1):
     """Fetch market data from Twelve Data API or return random prices when in none mode"""
     if market_data_source == 'none':
-        # Generate random prices for all instruments
+        # Generate random prices for all products
         data = {}
-        for instrument in INSTRUMENTS:
+        for product in PRODUCTS:
             # Generate a random base price between $1 and $100
             base_price = random.uniform(1, 100)
             # Generate bid and ask prices with bid slightly lower than ask
             bid = round(base_price - random.uniform(0, 1), 2)
             ask = round(base_price + random.uniform(0, 1), 2)
 
-            data[f"{instrument['symbol'].upper()}_bid"] = bid
-            data[f"{instrument['symbol'].upper()}_ask"] = ask
+            data[f"{product['symbol'].upper()}_bid"] = bid
+            data[f"{product['symbol'].upper()}_ask"] = ask
         return data
 
 
@@ -47,12 +47,12 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 console.print("[red]No credits remaining! Please upgrade your plan or wait for credits to reset.[/red]")
                 return {}
 
-        # Fetch market data for each instrument
+        # Fetch market data for each product
         data = {}
-        for instrument in INSTRUMENTS:
+        for product in PRODUCTS:
             ts_endpoint = TimeSeriesEndpoint(client)
             ts_endpoint.init(
-                symbol=instrument['symbol'],
+                symbol=product['symbol'],
                 interval="1min",
                 outputsize=1,
                 timezone="UTC"
@@ -61,16 +61,16 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
             try:
                 df = ts_endpoint.get().as_json()
                 if len(df) > 0:
-                    data[f"{instrument['symbol'].upper()}_bid"] = float(df[0]['high'])
-                    data[f"{instrument['symbol'].upper()}_ask"] = float(df[0]['low'])
+                    data[f"{product['symbol'].upper()}_bid"] = float(df[0]['high'])
+                    data[f"{product['symbol'].upper()}_ask"] = float(df[0]['low'])
                 else:
-                    data[f"{instrument['symbol'].upper()}_bid"] = 'N/A'
-                    data[f"{instrument['symbol'].upper()}_ask"] = 'N/A'
+                    data[f"{product['symbol'].upper()}_bid"] = 'N/A'
+                    data[f"{product['symbol'].upper()}_ask"] = 'N/A'
             except Exception as e:
                 if verbosity >= 1:
-                    console.print(f"Error fetching {instrument['symbol']}: {str(e)}")
-                    data[f"{instrument['symbol'].upper()}_bid"] = 'N/A'
-                    data[f"{instrument['symbol'].upper()}_ask"] = 'N/A'
+                    console.print(f"Error fetching {product['symbol']}: {str(e)}")
+                    data[f"{product['symbol'].upper()}_bid"] = 'N/A'
+                    data[f"{product['symbol'].upper()}_ask"] = 'N/A'
 
         return data
     except Exception as e:

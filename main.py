@@ -21,10 +21,10 @@ from twelvedata import TDClient
 from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
 
 # Local imports
-from instruments import INSTRUMENTS
+from products import PRODUCTS
 from market_data import get_market_data
 from trading import TradingBook, Exchange, Order, Fill
-from user_actions import add_instrument, remove_instrument, buy_instrument, sell_instrument
+from user_actions import add_product, remove_product, buy_product, sell_product
 
 
 class RateLimiter:
@@ -58,22 +58,22 @@ def create_layout(market_data, trading_book):
     """Create a layout with separate panels for Forex, Commodities, Stocks, and Trading Book"""
     # Create tables for each category
     forex_table = Table(show_header=True, header_style="bold")
-    forex_table.add_column("Instrument", style="cyan", no_wrap=True)
+    forex_table.add_column("Product", style="cyan", no_wrap=True)
     forex_table.add_column("Bid", style="green")
     forex_table.add_column("Ask", style="red")
 
     commodities_table = Table(show_header=True, header_style="bold")
-    commodities_table.add_column("Instrument", style="cyan", no_wrap=True)
+    commodities_table.add_column("Product", style="cyan", no_wrap=True)
     commodities_table.add_column("Bid", style="green")
     commodities_table.add_column("Ask", style="red")
 
     stocks_table = Table(show_header=True, header_style="bold")
-    stocks_table.add_column("Instrument", style="cyan", no_wrap=True)
+    stocks_table.add_column("Product", style="cyan", no_wrap=True)
     stocks_table.add_column("Bid", style="green")
     stocks_table.add_column("Ask", style="red")
 
     # Add data to market tables
-    for config in INSTRUMENTS:
+    for config in PRODUCTS:
         if config['category'] == 'forex':
             forex_table.add_row(
                 config['symbol'],
@@ -124,8 +124,8 @@ def create_layout(market_data, trading_book):
     # Create controls panel
     controls_table = Table(show_header=False)
     controls_table.add_column("Menu", style="cyan", no_wrap=True)
-    controls_table.add_row("- a - Add instrument")
-    controls_table.add_row("- r - Remove instrument")
+    controls_table.add_row("- a - Add product")
+    controls_table.add_row("- r - Remove product")
     controls_table.add_row("- b - Buy product")
     controls_table.add_row("- s - Sell product")
     controls_table.add_row("- q - Quit")
@@ -145,7 +145,7 @@ def create_layout(market_data, trading_book):
     return Group(top_row, bottom_row, controls_panel)
 
     # Add data to market tables
-    for config in INSTRUMENTS:
+    for config in PRODUCTS:
         if config['category'] == 'forex':
             forex_table.add_row(
                 config['symbol'],
@@ -207,7 +207,7 @@ def main(market_data_source='twelvedata', verbosity=1):
     renderable = layout
 
     # Print header once
-    console.print("Press 'b' to buy, 's' to sell, 'a' to add instrument, 'r' to remove instrument, 'q' to quit")
+    console.print("Press 'b' to buy, 's' to sell, 'a' to add product, 'r' to remove product, 'q' to quit")
 
     # Initialize API client
     if market_data_source == 'twelvedata':
@@ -221,13 +221,13 @@ def main(market_data_source='twelvedata', verbosity=1):
                 event = Prompt.ask("\n")
 
                 if event.lower() == "a":
-                    with_live_update(live, add_instrument, console)
+                    with_live_update(live, add_product, console)
                 elif event.lower() == "r":
-                    with_live_update(live, remove_instrument, console)
+                    with_live_update(live, remove_product, console)
                 elif event.lower() == "b":
-                    trading_book = with_live_update(live, buy_instrument, trading_book, exchange, market_data_source, console, verbosity)
+                    trading_book = with_live_update(live, buy_product, trading_book, exchange, market_data_source, console, verbosity)
                 elif event.lower() == "s":
-                    trading_book = with_live_update(live, sell_instrument, trading_book, exchange, market_data_source, console, verbosity)
+                    trading_book = with_live_update(live, sell_product, trading_book, exchange, market_data_source, console, verbosity)
                 elif event.lower() == "q":
                     console.print("\n[green]Exiting...[/green]")
                     break

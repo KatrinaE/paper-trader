@@ -1,5 +1,5 @@
-# Instruments configuration
-DEFAULT_INSTRUMENTS = [
+# Products configuration
+DEFAULT_PRODUCTS = [
     # Forex
     {"symbol": "EUR/USD", "name": "Euro - US Dollar exchange rate", "category": "forex"},
     {"symbol": "GBP/USD", "name": "British Pound - US Dollar exchange rate", "category": "forex"},
@@ -20,4 +20,4 @@ DEFAULT_INSTRUMENTS = [
     #{"symbol": "TSLA", "name": "Tesla, Inc.", "category": "stocks"}
 ]
 
-INSTRUMENTS = DEFAULT_INSTRUMENTS.copy()
+PRODUCTS = DEFAULT_PRODUCTS.copy()
