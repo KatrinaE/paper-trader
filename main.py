@@ -23,7 +23,8 @@ from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
 # Local imports
 from products import PRODUCTS
 from market_data import get_market_data
-from trading import Exchange, Order, Fill
+from exchange import Exchange
+from trading import Order, Fill
 from trading_book import TradingBook
 from user_actions import add_product, remove_product, buy_product, sell_product
 

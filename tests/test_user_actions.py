@@ -1,8 +1,9 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
+from exchange import Exchange
 from products import PRODUCTS
-from trading import Exchange, Order, Fill
+from trading import Order, Fill
 from trading_book import TradingBook
 from user_actions import BUY, SELL, _add_product, _remove_product, _trade_product
 
