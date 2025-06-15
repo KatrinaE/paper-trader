@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from main import get_market_data, PRODUCTS
+from main import PRODUCTS
+from market_data import get_market_data
 
 class TestMarketData(unittest.TestCase):
     def test_get_market_data_none_mode(self):

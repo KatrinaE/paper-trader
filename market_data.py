@@ -1,5 +1,4 @@
 import random
-import math
 import logging
 from datetime import datetime
 
@@ -26,27 +25,98 @@ CALL_WINDOW_SECONDS = 60  # 1 minute
 # Initialize rate limiter
 rate_limiter = RateLimiter(MAX_CALLS_PER_MINUTE, CALL_WINDOW_SECONDS)
 
+# Market data configuration
+class MarketDataConfig:
+    def __init__(self,
+                 initial_price_range: tuple = (0, 100),
+                 modeled_price_delta_percent: float = 0.05,
+                 z_score: float = 2.0,
+                 min_bid_ask_spread: float = 0.01,
+                 max_bid_ask_spread: float = 0.5):
+        self.initial_price_range = initial_price_range
+
+        self.modeled_price_delta_percent = modeled_price_delta_percent
+        self.z_score = z_score
+
+        self.min_bid_ask_spread = min_bid_ask_spread
+        self.max_bid_ask_spread = max_bid_ask_spread
+
+        # Log configuration settings
+        logger.debug(f"Config initialized with settings:")
+        logger.debug(f"  Initial price range: {initial_price_range}")
+        logger.debug(f"  Z-score: {self.z_score}")
+        logger.debug(f"  Modeled price delta percent: {modeled_price_delta_percent*100}%")
+        logger.debug(f"  Bid-ask spread range: {min_bid_ask_spread}-{max_bid_ask_spread}")
+        logger.debug(f"  Z-score: {self.z_score:.4f}")
+
+
+    def model_std_dev(self, prev_price: float) -> float:
+        """Model standard deviation based on current price and given price range and z-score.
+
+        Model standard deviation based on equation σ = (x - μ) / z.
+        In words: std dev = (value - mean) / z-score.
+        For example, if we want a std dev such that our new price (a randomly picked value) will fall
+        within +/- 5% of the old price 95% of the time,
+        use x - μ = 0.05 * prev_price
+        and z-score = 2 (95% confidence interval)
+        """
+        std_dev = self.modeled_price_delta_percent * prev_price / self.z_score
+        logger.debug(f"Calculated std dev for previous price {prev_price}: {std_dev:.4f}")
+        return std_dev
+
+# Global config instance
+market_data_config = MarketDataConfig()
+
 def get_market_data(market_data_source='twelvedata', verbosity=1):
     """Fetch market data from Twelve Data API or return random prices when in none mode"""
     logger.info(f"Fetching market data (source={market_data_source}, verbosity={verbosity})")
 
     if market_data_source == 'none':
-        # Generate random prices for all products
+        # Generate probabilistic prices for all products
         data = {}
-        for product in PRODUCTS:
-            # Generate a random base price between $1 and $100
-            base_price = random.uniform(1, 100)
-            # Generate bid and ask prices with bid slightly lower than ask
-            bid = round(base_price - random.uniform(0, 1), 2)
-            ask = round(base_price + random.uniform(0, 1), 2)
+        previous_prices = {}  # Store previous prices to maintain continuity
 
-            data[f"{product['symbol'].upper()}_bid"] = bid
-            data[f"{product['symbol'].upper()}_ask"] = ask
+        for product in PRODUCTS:
+            symbol = product['symbol'].upper()
+
+            # For first call, generate random initial price
+            if not previous_prices:
+                base_price = random.uniform(*market_data_config.initial_price_range)
+            else:
+                # Get previous price (use bid as reference)
+                prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
+
+                # Generate new price using normal distribution
+                std_dev = market_data_config.model_std_dev(prev_price)
+
+                # Generate new price with exponential decay in tails
+                while True:
+                    new_price = random.gauss(prev_price, std_dev)
+                    if new_price >= 0:  # Allow zero price
+                        break
+
+                base_price = round(new_price, 2)
+
+            # Generate bid and ask prices with bid slightly lower than ask
+            spread = random.uniform(market_data_config.min_bid_ask_spread, market_data_config.max_bid_ask_spread)
+            bid = round(base_price - spread, 2)
+            ask = round(base_price + spread, 2)
+
+            data[f"{symbol}_bid"] = bid
+            data[f"{symbol}_ask"] = ask
+            previous_prices[symbol] = bid  # Store bid price for next iteration
+
         return data
 
 
     rate_limiter.wait_if_needed()
     try:
+        if config is None:
+            config = market_data_config
+            logger.debug("Using default market data configuration")
+        else:
+            logger.debug("Using custom market data configuration")
+
         usage_endpoint = APIUsageEndpoint(client)
         usage_data = usage_endpoint.get().as_json()
 

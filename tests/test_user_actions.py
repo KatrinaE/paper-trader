@@ -6,6 +6,7 @@ from products import PRODUCTS
 from trading import Order, Fill
 from trading_book import TradingBook
 from user_actions import BUY, SELL, _add_product, _remove_product, _trade_product
+# Removed market_data_config import since it's not needed anymore
 
 class TestAddProduct(unittest.TestCase):
     def test_add_forex(self):

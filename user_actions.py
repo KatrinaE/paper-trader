@@ -5,7 +5,7 @@ from products import PRODUCTS
 
 # Configure user actions logger
 logger = logging.getLogger('user_actions')
-from market_data import get_market_data
+from market_data import get_market_data, market_data_config
 from exchange import Exchange
 from trading import Order, Fill
 from trading_book import TradingBook
@@ -75,7 +75,7 @@ def buy_product(trading_book, exchange, market_data_source, console, verbosity):
     product = Prompt.ask("Enter product symbol to buy")
     quantity = int(Prompt.ask("Enter quantity to buy"))
     try:
-        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, BUY, verbosity)
+        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, BUY, verbosity, config=market_data_config)
         console.print(f"[green]Bought {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
         return trading_book
     except Exception as e:
@@ -88,13 +88,13 @@ def sell_product(trading_book, exchange, market_data_source, console, verbosity)
     product = Prompt.ask("Enter product symbol to sell")
     quantity = int(Prompt.ask("Enter quantity to sell"))
     try:
-        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, SELL, verbosity)
+        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, SELL, verbosity, config=market_data_config)
         console.print(f"[green]Sold {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
         return trading_book
     except Exception as e:
         console.print(f"[red]Error selling: {str(e)}[/red]")
 
-def _trade_product(market_data_source, exchange, trading_book, product, quantity, side, verbosity):
+def _trade_product(market_data_source, exchange, trading_book, product, quantity, side, verbosity, config=None):
      # Get current market data
     market_data = get_market_data(market_data_source, verbosity)
     exchange.update_market_data(market_data)
