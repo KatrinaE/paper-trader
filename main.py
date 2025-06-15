@@ -108,16 +108,17 @@ def create_layout(market_data, trading_book):
     trading_table.add_column("Value", style="green")
 
     # Add positions to trading table
-    market_data = {}
-    for product in trading_book.positions:
-        bid = market_data.get(f"{product}_bid", 'N/A')
-        if bid != 'N/A':
-            market_data[product] = float(bid)
-
+    # Use the same market_data that was passed to the function
     total_value = trading_book.get_total_value(market_data)
+    
+    # Create a dictionary of current bid prices for our positions
+    position_prices = {}
+    for product in trading_book.positions:
+        bid = market_data.get(f"{product}_bid", 0.0)
+        position_prices[product] = float(bid) if bid != 'N/A' else 0.0
 
     for product, quantity in trading_book.positions.items():
-        bid = market_data.get(product, 0.0)
+        bid = position_prices.get(product, 0.0)
         value = quantity * bid
         trading_table.add_row(
             product,
