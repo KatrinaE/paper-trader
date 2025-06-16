@@ -84,7 +84,11 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 base_price = random.uniform(*market_data_config.initial_price_range)
             else:
                 # Get previous price (use bid as reference)
+                logger.info(f"previous_prices: {previous_prices}")
+                logger.info(f"symbol: {symbol}")
+                # Ensure we use uppercase symbol to match previous_prices keys
                 prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
+                logger.info(f"prev_price: {prev_price}")
 
                 # Generate new price using normal distribution
                 std_dev = market_data_config.model_std_dev(prev_price)
@@ -92,6 +96,7 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 # Generate new price with exponential decay in tails
                 while True:
                     new_price = random.gauss(prev_price, std_dev)
+                    logger.info(f"prev_price: {prev_price}, std_dev: {std_dev}, new_price: {new_price}")
                     if new_price >= 0:  # Allow zero price
                         break
 
