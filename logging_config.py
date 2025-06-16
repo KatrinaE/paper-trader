@@ -18,14 +18,10 @@ logging.basicConfig(level=logging.INFO)
 file_handler = logging.FileHandler(LOG_FILE)
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(logging.Formatter('%(name)s - %(levelname)s - %(message)s'))
-
 # Get root logger and add handlers
 root_logger = logging.getLogger()
 root_logger.handlers = []  # Clear any existing handlers
 root_logger.addHandler(file_handler)
-root_logger.addHandler(console_handler)
 
 # Set up module-specific loggers
 logger = logging.getLogger('paper_trader')
