@@ -202,6 +202,22 @@ def with_live_update(live, func, *args, **kwargs):
     finally:
         live.start()
 
+def update_market_data_continuously(live, trading_book, exchange, market_data_source, verbosity):
+    """Background thread to update market data every second"""
+    while True:
+        try:
+            # Get new market data
+            market_data = get_market_data(market_data_source, verbosity)
+            if market_data:
+                exchange.update_market_data(market_data)
+                
+                # Update the display
+                renderable = create_layout(market_data, trading_book)
+                live.update(renderable, refresh=True)
+        except Exception as e:
+            logger.error(f"Error updating market data: {str(e)}")
+        time.sleep(1)  # Update every second
+
 def main(market_data_source='twelvedata', verbosity=1):
     """Main application loop"""
     # Initialize trading book and exchange
@@ -212,22 +228,37 @@ def main(market_data_source='twelvedata', verbosity=1):
     market_data = get_market_data(market_data_source, verbosity)
     layout = create_layout(market_data, trading_book)
 
-    # Create a single renderable that we'll update
+    # Create renderable from layout
     renderable = layout
 
-    # Print header once
-    console.print("Press 'b' to buy, 's' to sell, 'a' to add product, 'r' to remove product, 'q' to quit")
-
-    # Initialize API client
+    # Initialize API client if needed
     if market_data_source == 'twelvedata':
         API_KEY = os.getenv("API_KEY")
         client = TDClient(apikey=API_KEY)
 
-    with Live(renderable, console=console, auto_refresh=False) as live:
+    # Print header once
+    console.print("Press 'b' to buy, 's' to sell, 'a' to add product, 'r' to remove product, 'q' to quit")
+
+    # Create Live object
+    live = Live(renderable, console=console, auto_refresh=False)
+    
+    # Start the market data update thread
+    update_thread = Thread(target=update_market_data_continuously, 
+                          args=(live, trading_book, exchange, market_data_source, verbosity),
+                          daemon=True)
+    update_thread.start()
+
+    # Start the Live display
+    with live:
         while True:
             try:
-                # Wait for user input
-                event = Prompt.ask("\n")
+                # Wait for user input with timeout (1 second)
+                try:
+                    event = Prompt.ask("\n", timeout=1)
+                except KeyboardInterrupt:
+                    console.print("\n[green]Exiting...[/green]")
+                    update_thread.join()  # Wait for the thread to finish
+                    break
 
                 if event.lower() == "a":
                     with_live_update(live, add_product, console)
@@ -240,13 +271,6 @@ def main(market_data_source='twelvedata', verbosity=1):
                 elif event.lower() == "q":
                     console.print("\n[green]Exiting...[/green]")
                     break
-
-                # Update the existing layout with new data
-                market_data = get_market_data(market_data_source, verbosity)
-                if market_data:
-                    exchange.update_market_data(market_data)
-                    renderable = create_layout(market_data, trading_book)
-                    live.update(renderable, refresh=True)
 
             except KeyboardInterrupt:
                 console.print("\n[green]Exiting...[/green]")
