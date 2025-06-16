@@ -90,7 +90,7 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
 
             # For first call, generate random initial price
             if not previous_prices:
-                base_price = random.uniform(*market_data_config.initial_price_range)
+                logger.error("previous_prices is empty")
             else:
                 # Get previous price (use bid as reference)
                 logger.info(f"symbol: {symbol}")
@@ -115,6 +115,7 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 base_price = round(new_price, 2)
                 
                 # Ensure base price is at least minimum
+                logger.info(f"min price: {min_price}")
                 base_price = max(base_price, min_price)
 
                 # Generate bid and ask prices with bid slightly lower than ask
@@ -129,7 +130,7 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 data[f"{symbol}_ask"] = ask
                 
                 # Store in previous_prices dictionary with positive price
-                previous_prices[symbol] = bid  # Store bid price for next iteration
+                previous_prices[symbol] = base_price  # Store base price (midpoint) for next iteration
 
         return data
 
