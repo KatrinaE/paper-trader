@@ -64,7 +64,17 @@ class MarketDataConfig:
         logger.debug(f"Calculated std dev for previous price {prev_price}: {std_dev:.4f}")
         return std_dev
 
-# Global config instance
+# Global config and state instances
+market_data_config = MarketDataConfig()
+previous_prices = {}  # Store previous prices to maintain continuity between calls
+
+# Initialize previous_prices with default values if empty
+for product in PRODUCTS:
+    symbol = product['symbol'].upper()
+    previous_prices[symbol] = random.uniform(*market_data_config.initial_price_range)
+    logger.info(f"Initialized previous price for {symbol}: {previous_prices[symbol]}")
+
+# Global config and state instances
 market_data_config = MarketDataConfig()
 
 def get_market_data(market_data_source='twelvedata', verbosity=1):
@@ -74,18 +84,17 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
     if market_data_source == 'none':
         # Generate probabilistic prices for all products
         data = {}
-        previous_prices = {}  # Store previous prices to maintain continuity
 
         for product in PRODUCTS:
             symbol = product['symbol'].upper()
 
             # For first call, generate random initial price
             if not previous_prices:
-                base_price = random.uniform(*market_data_config.initial_price_range)
+                logger.error("previous_prices is empty")
             else:
                 # Get previous price (use bid as reference)
-                logger.info(f"previous_prices: {previous_prices}")
                 logger.info(f"symbol: {symbol}")
+                logger.info(f"previous_prices: {previous_prices}")
                 # Ensure we use uppercase symbol to match previous_prices keys
                 prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
                 logger.info(f"prev_price: {prev_price}")
@@ -94,22 +103,34 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 std_dev = market_data_config.model_std_dev(prev_price)
 
                 # Generate new price with exponential decay in tails
+                # Ensure we never accept a negative price
+                min_price = market_data_config.initial_price_range[0]
                 while True:
                     new_price = random.gauss(prev_price, std_dev)
                     logger.info(f"prev_price: {prev_price}, std_dev: {std_dev}, new_price: {new_price}")
-                    if new_price >= 0:  # Allow zero price
+                    if new_price >= min_price:  # Ensure price is at least minimum
                         break
-
+                        
+                # If we got here, we have a valid positive price
                 base_price = round(new_price, 2)
+                
+                # Ensure base price is at least minimum
+                logger.info(f"min price: {min_price}")
+                base_price = max(base_price, min_price)
 
-            # Generate bid and ask prices with bid slightly lower than ask
-            spread = random.uniform(market_data_config.min_bid_ask_spread, market_data_config.max_bid_ask_spread)
-            bid = round(base_price - spread, 2)
-            ask = round(base_price + spread, 2)
-
-            data[f"{symbol}_bid"] = bid
-            data[f"{symbol}_ask"] = ask
-            previous_prices[symbol] = bid  # Store bid price for next iteration
+                # Generate bid and ask prices with bid slightly lower than ask
+                spread = random.uniform(market_data_config.min_bid_ask_spread, market_data_config.max_bid_ask_spread)
+                
+                # Ensure bid price is positive and ask price is valid
+                bid = max(round(base_price - spread, 2), market_data_config.initial_price_range[0])
+                ask = max(round(base_price + spread, 2), market_data_config.initial_price_range[0])
+                
+                # Store in data dictionary
+                data[f"{symbol}_bid"] = bid
+                data[f"{symbol}_ask"] = ask
+                
+                # Store in previous_prices dictionary with positive price
+                previous_prices[symbol] = base_price  # Store base price (midpoint) for next iteration
 
         return data
 
@@ -126,16 +147,16 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
         usage_data = usage_endpoint.get().as_json()
 
         if verbosity >= 2:
-            console.print(f"API Usage: {usage_data['credits_used']}/{usage_data['credits_total']}")
+            logger.info(f"API Usage: {usage_data['credits_used']}/{usage_data['credits_total']}")
             if usage_data['credits_used'] >= usage_data['credits_total']:
-                console.print("[red]WARNING: API credits are exhausted[/red]")
+                logger.warning("API credits are exhausted")
 
-            console.print(
-                f"[cyan]Current API credit usage: {usage_data.get('current_usage', 'N/A')}/{usage_data.get('plan_limit', 'N/A')}" + \
-                    f"; Daily API credit usage: {usage_data.get('daily_usage', 'N/A')}/{usage_data.get('plan_daily_limit', 'N/A')} [/cyan]")
+            logger.info(
+                f"Current API credit usage: {usage_data.get('current_usage', 'N/A')}/{usage_data.get('plan_limit', 'N/A')}" + \
+                    f"; Daily API credit usage: {usage_data.get('daily_usage', 'N/A')}/{usage_data.get('plan_daily_limit', 'N/A')}")
             if usage_data.get('current_usage', 0) >= usage_data.get('plan_limit', 0) or \
                 usage_data.get('daily_usage', 0) >= usage_data.get('plan_daily_limit', 0):
-                console.print("[red]No credits remaining! Please upgrade your plan or wait for credits to reset.[/red]")
+                logger.warning("No credits remaining! Please upgrade your plan or wait for credits to reset.")
                 return {}
 
         # Fetch market data for each product
@@ -155,16 +176,17 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                     data[f"{product['symbol'].upper()}_bid"] = float(df[0]['high'])
                     data[f"{product['symbol'].upper()}_ask"] = float(df[0]['low'])
                 else:
+                    logger.warning(f"No data returned for {product['symbol']}")
                     data[f"{product['symbol'].upper()}_bid"] = 'N/A'
                     data[f"{product['symbol'].upper()}_ask"] = 'N/A'
             except Exception as e:
                 if verbosity >= 1:
-                    console.print(f"Error fetching {product['symbol']}: {str(e)}")
+                    logger.error(f"Error fetching {product['symbol']}: {str(e)}")
                     data[f"{product['symbol'].upper()}_bid"] = 'N/A'
                     data[f"{product['symbol'].upper()}_ask"] = 'N/A'
 
         return data
     except Exception as e:
-        console.print(f"Error fetching data: {str(e)}")
-        console.print(f"Full error details: {traceback.format_exc()}")
+        logger.error(f"Error fetching data: {str(e)}")
+        logger.error(f"Full error details: {traceback.format_exc()}")
         return {}
