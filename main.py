@@ -251,13 +251,12 @@ def main(market_data_source='twelvedata', verbosity=1):
     # Start the Live display
     with live:
         while True:
-            try:
-                # Wait for user input with timeout (1 second)
                 try:
-                    event = Prompt.ask("\n", timeout=1)
+                    # Wait for user input
+                    event = input()
                 except KeyboardInterrupt:
                     console.print("\n[green]Exiting...[/green]")
-                    update_thread.join()  # Wait for the thread to finish
+                    update_thread.join()
                     break
 
                 if event.lower() == "a":
@@ -271,13 +270,6 @@ def main(market_data_source='twelvedata', verbosity=1):
                 elif event.lower() == "q":
                     console.print("\n[green]Exiting...[/green]")
                     break
-
-            except KeyboardInterrupt:
-                console.print("\n[green]Exiting...[/green]")
-                break
-            except Exception as e:
-                console.print(f"[red]Error: {str(e)}[/red]")
-                time.sleep(1)
 
 if __name__ == "__main__":
     # Initialize console
