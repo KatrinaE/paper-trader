@@ -51,14 +51,17 @@ class TestMarketData(unittest.TestCase):
             # Verify price continuity across iterations
             # Check that prices are not jumping to extreme values
             for bid, ask in zip(bids, asks):
-                # Verify that prices are within reasonable bounds
-                # We're using the initial price range from market_data_config as a reference
-                max_price = market_data_config.initial_price_range[1]
-                min_price = market_data_config.initial_price_range[0]
-                self.assertLessEqual(bid, max_price * 5, f"Bid price for {symbol} jumped too high")
-                self.assertLessEqual(ask, max_price * 5, f"Ask price for {symbol} jumped too high")
-                self.assertGreaterEqual(bid, min_price * 0.5, f"Bid price for {symbol} dropped too low")
-                self.assertGreaterEqual(ask, min_price * 0.5, f"Ask price for {symbol} dropped too low")
+                # Get the product's initial price
+                initial_price = product['initial_price']
+                
+                # Calculate bounds based on initial price
+                max_price = initial_price * 1.5  # Allow up to 50% increase
+                min_price = initial_price * 0.5  # Allow down to 50% decrease
+                
+                self.assertLessEqual(bid, max_price, f"Bid price for {symbol} jumped too high")
+                self.assertLessEqual(ask, max_price, f"Ask price for {symbol} jumped too high")
+                self.assertGreaterEqual(bid, min_price, f"Bid price for {symbol} dropped too low")
+                self.assertGreaterEqual(ask, min_price, f"Ask price for {symbol} dropped too low")
 
     def test_get_market_data_never_negative(self):
         """
@@ -99,12 +102,18 @@ class TestMarketData(unittest.TestCase):
                     self.assertLessEqual(prev_bid, prev_ask, f"Previous bid should be <= ask for {symbol}")
                     
                     # Verify that prices are generally moving in a continuous manner
-                    max_price = market_data_config.initial_price_range[1]
-                    min_price = market_data_config.initial_price_range[0]
-                    self.assertLessEqual(bid, max_price * 5, f"Bid price for {symbol} jumped too high")
-                    self.assertLessEqual(ask, max_price * 5, f"Ask price for {symbol} jumped too high")
-                    self.assertGreaterEqual(bid, min_price * 0.5, f"Bid price for {symbol} dropped too low")
-                    self.assertGreaterEqual(ask, min_price * 0.5, f"Ask price for {symbol} dropped too low")
+                    # Get the product's initial price
+                    product = next(p for p in PRODUCTS if p['symbol'] == symbol)
+                    initial_price = product['initial_price']
+                    
+                    # Calculate bounds based on initial price
+                    max_price = initial_price * 1.5  # Allow up to 50% increase
+                    min_price = initial_price * 0.5  # Allow down to 50% decrease
+                    
+                    self.assertLessEqual(bid, max_price, f"Bid price for {symbol} jumped too high")
+                    self.assertLessEqual(ask, max_price, f"Ask price for {symbol} jumped too high")
+                    self.assertGreaterEqual(bid, min_price, f"Bid price for {symbol} dropped too low")
+                    self.assertGreaterEqual(ask, min_price, f"Ask price for {symbol} dropped too low")
                 
                 # Store current prices for next iteration
                 prev_prices[symbol] = (bid, ask)

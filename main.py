@@ -64,21 +64,21 @@ console = Console()
 
 def create_layout(market_data, trading_book):
     """Create a layout with separate panels for Forex, Commodities, Stocks, and Trading Book"""
-    # Create tables for each category
+    # Create tables for each category with fixed column widths
     forex_table = Table(show_header=True, header_style="bold")
     forex_table.add_column("Product", style="cyan", no_wrap=True)
-    forex_table.add_column("Bid", style="green")
-    forex_table.add_column("Ask", style="red")
+    forex_table.add_column("Bid", style="green", width=10)  # Fixed width for 4 digits + 2 decimal places + decimal point
+    forex_table.add_column("Ask", style="red", width=10)
 
     commodities_table = Table(show_header=True, header_style="bold")
     commodities_table.add_column("Product", style="cyan", no_wrap=True)
-    commodities_table.add_column("Bid", style="green")
-    commodities_table.add_column("Ask", style="red")
+    commodities_table.add_column("Bid", style="green", width=10)
+    commodities_table.add_column("Ask", style="red", width=10)
 
     stocks_table = Table(show_header=True, header_style="bold")
     stocks_table.add_column("Product", style="cyan", no_wrap=True)
-    stocks_table.add_column("Bid", style="green")
-    stocks_table.add_column("Ask", style="red")
+    stocks_table.add_column("Bid", style="green", width=10)
+    stocks_table.add_column("Ask", style="red", width=10)
 
     # Add data to market tables
     for config in PRODUCTS:
@@ -156,36 +156,42 @@ def create_layout(market_data, trading_book):
     # Add data to market tables
     for config in PRODUCTS:
         if config['category'] == 'forex':
+            bid = market_data.get(f"{config['symbol']}_bid", 'N/A')
+            ask = market_data.get(f"{config['symbol']}_ask", 'N/A')
             forex_table.add_row(
                 config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                f"{float(bid):8.2f}" if bid != 'N/A' else 'N/A',
+                f"{float(ask):8.2f}" if ask != 'N/A' else 'N/A'
             )
         elif config['category'] == 'commodities':
+            bid = market_data.get(f"{config['symbol']}_bid", 'N/A')
+            ask = market_data.get(f"{config['symbol']}_ask", 'N/A')
             commodities_table.add_row(
                 config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                f"{float(bid):8.2f}" if bid != 'N/A' else 'N/A',
+                f"{float(ask):8.2f}" if ask != 'N/A' else 'N/A'
             )
         elif config['category'] == 'stocks':
+            bid = market_data.get(f"{config['symbol']}_bid", 'N/A')
+            ask = market_data.get(f"{config['symbol']}_ask", 'N/A')
             stocks_table.add_row(
                 config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                f"{float(bid):8.2f}" if bid != 'N/A' else 'N/A',
+                f"{float(ask):8.2f}" if ask != 'N/A' else 'N/A'
             )
 
     # Create panels for each table
-    forex_panel = Panel(forex_table, title="Forex", border_style="cyan")
-    commodities_panel = Panel(commodities_table, title="Commodities", border_style="yellow")
-    stocks_panel = Panel(stocks_table, title="Stocks", border_style="magenta")
+    forex_panel = Panel(forex_table, title="Forex", border_style="green")
+    commodities_panel = Panel(commodities_table, title="Commodities", border_style="green")
+    stocks_panel = Panel(stocks_table, title="Stocks", border_style="green")
     trading_panel = Panel(trading_table, title="Trading Book", border_style="green")
 
     # Create columns for each row
     top_row = Columns([forex_panel, commodities_panel], equal=True)
     bottom_row = Columns([stocks_panel, trading_panel], equal=True)
 
-    # Create the final layout with two rows
-    return Group(top_row, bottom_row)
+    # Create the final layout with three rows
+    return Group(top_row, bottom_row, controls_panel)
 
 def update_display(market_data, trading_book):
     """Update the display with current market data and trading book"""
@@ -202,6 +208,22 @@ def with_live_update(live, func, *args, **kwargs):
     finally:
         live.start()
 
+def update_market_data_continuously(live, trading_book, exchange, market_data_source, verbosity):
+    """Background thread to update market data every second"""
+    while True:
+        try:
+            # Get new market data
+            market_data = get_market_data(market_data_source, verbosity)
+            if market_data:
+                exchange.update_market_data(market_data)
+                
+                # Update the display
+                renderable = create_layout(market_data, trading_book)
+                live.update(renderable, refresh=True)
+        except Exception as e:
+            logger.error(f"Error updating market data: {str(e)}")
+        time.sleep(1)  # Update every second
+
 def main(market_data_source='twelvedata', verbosity=1):
     """Main application loop"""
     # Initialize trading book and exchange
@@ -212,22 +234,36 @@ def main(market_data_source='twelvedata', verbosity=1):
     market_data = get_market_data(market_data_source, verbosity)
     layout = create_layout(market_data, trading_book)
 
-    # Create a single renderable that we'll update
+    # Create renderable from layout
     renderable = layout
 
-    # Print header once
-    console.print("Press 'b' to buy, 's' to sell, 'a' to add product, 'r' to remove product, 'q' to quit")
-
-    # Initialize API client
+    # Initialize API client if needed
     if market_data_source == 'twelvedata':
         API_KEY = os.getenv("API_KEY")
         client = TDClient(apikey=API_KEY)
 
-    with Live(renderable, console=console, auto_refresh=False) as live:
+    # Print header once
+    console.print("Press 'b' to buy, 's' to sell, 'a' to add product, 'r' to remove product, 'q' to quit")
+
+    # Create Live object
+    live = Live(renderable, console=console, auto_refresh=False)
+    
+    # Start the market data update thread
+    update_thread = Thread(target=update_market_data_continuously, 
+                          args=(live, trading_book, exchange, market_data_source, verbosity),
+                          daemon=True)
+    update_thread.start()
+
+    # Start the Live display
+    with live:
         while True:
-            try:
-                # Wait for user input
-                event = Prompt.ask("\n")
+                try:
+                    # Wait for user input
+                    event = input()
+                except KeyboardInterrupt:
+                    console.print("\n[green]Exiting...[/green]")
+                    update_thread.join()
+                    break
 
                 if event.lower() == "a":
                     with_live_update(live, add_product, console)
@@ -240,20 +276,6 @@ def main(market_data_source='twelvedata', verbosity=1):
                 elif event.lower() == "q":
                     console.print("\n[green]Exiting...[/green]")
                     break
-
-                # Update the existing layout with new data
-                market_data = get_market_data(market_data_source, verbosity)
-                if market_data:
-                    exchange.update_market_data(market_data)
-                    renderable = create_layout(market_data, trading_book)
-                    live.update(renderable, refresh=True)
-
-            except KeyboardInterrupt:
-                console.print("\n[green]Exiting...[/green]")
-                break
-            except Exception as e:
-                console.print(f"[red]Error: {str(e)}[/red]")
-                time.sleep(1)
 
 if __name__ == "__main__":
     # Initialize console

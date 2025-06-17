@@ -29,7 +29,7 @@ rate_limiter = RateLimiter(MAX_CALLS_PER_MINUTE, CALL_WINDOW_SECONDS)
 class MarketDataConfig:
     def __init__(self,
                  initial_price_range: tuple = (0, 100),
-                 modeled_price_delta_percent: float = 0.05,
+                 modeled_price_delta_percent: float = 0.005,
                  z_score: float = 2.0,
                  min_bid_ask_spread: float = 0.01,
                  max_bid_ask_spread: float = 0.5):
@@ -66,16 +66,16 @@ class MarketDataConfig:
 
 # Global config and state instances
 market_data_config = MarketDataConfig()
-previous_prices = {}  # Store previous prices to maintain continuity between calls
 
-# Initialize previous_prices with default values if empty
-for product in PRODUCTS:
-    symbol = product['symbol'].upper()
-    previous_prices[symbol] = random.uniform(*market_data_config.initial_price_range)
-    logger.info(f"Initialized previous price for {symbol}: {previous_prices[symbol]}")
+# Initialize previous_prices with initial prices from product definitions
+previous_prices = {
+    product['symbol']: product.get('initial_price', 100)  # Default to 100 if no initial_price
+    for product in PRODUCTS
+}
 
-# Global config and state instances
-market_data_config = MarketDataConfig()
+# Log initialization
+for symbol, price in previous_prices.items():
+    logger.info(f"Initialized previous price for {symbol}: {price}")
 
 def get_market_data(market_data_source='twelvedata', verbosity=1):
     """Fetch market data from Twelve Data API or return random prices when in none mode"""
@@ -119,7 +119,9 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 base_price = max(base_price, min_price)
 
                 # Generate bid and ask prices with bid slightly lower than ask
-                spread = random.uniform(market_data_config.min_bid_ask_spread, market_data_config.max_bid_ask_spread)
+                # Use a multiple of the standard deviation for the spread
+                spread = std_dev * 2  # Using 2x std dev as spread
+                logger.info(f"Using spread: {spread}")
                 
                 # Ensure bid price is positive and ask price is valid
                 bid = max(round(base_price - spread, 2), market_data_config.initial_price_range[0])
@@ -129,6 +131,7 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 data[f"{symbol}_bid"] = bid
                 data[f"{symbol}_ask"] = ask
                 
+                logger.info(f"Generated prices for {symbol}: base={base_price}, bid={bid}, ask={ask}")
                 # Store in previous_prices dictionary with positive price
                 previous_prices[symbol] = base_price  # Store base price (midpoint) for next iteration
 
