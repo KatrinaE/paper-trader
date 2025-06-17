@@ -19,45 +19,45 @@ class TestMarketData(unittest.TestCase):
         # Run multiple iterations to verify price stability
         num_iterations = 10
         results = []
-        
+
         # Get initial prices
         result = get_market_data(market_data_source='none', verbosity=1)
         self.assertEqual(len(result), len(PRODUCTS) * 2)  # Each instrument has bid and ask
         results.append(result)
-        
+
         # Get updated prices for multiple iterations
         for i in range(1, num_iterations):
             result = get_market_data(market_data_source='none', verbosity=1)
             self.assertEqual(len(result), len(PRODUCTS) * 2)  # Each instrument has bid and ask
             results.append(result)
-        
+
         # Verify price stability across all iterations
         for product in PRODUCTS:
             symbol = product['symbol'].upper()
-            
+
             # Get all bid and ask prices for this symbol across iterations
             bids = [result[f"{symbol}_bid"] for result in results]
             asks = [result[f"{symbol}_ask"] for result in results]
-            
+
             # Verify all prices are positive
             for bid, ask in zip(bids, asks):
                 assert bid >= 0, f"Bid price for {symbol} must be non-negative"
                 assert ask >= 0, f"Ask price for {symbol} must be non-negative"
-                
+
             # Verify price relationships
             for bid, ask in zip(bids, asks):
                 self.assertLessEqual(bid, ask, f"Bid should be <= ask for {symbol}")
-            
+
             # Verify price continuity across iterations
             # Check that prices are not jumping to extreme values
             for bid, ask in zip(bids, asks):
                 # Get the product's initial price
                 initial_price = product['initial_price']
-                
+
                 # Calculate bounds based on initial price
                 max_price = initial_price * 1.5  # Allow up to 50% increase
                 min_price = initial_price * 0.5  # Allow down to 50% decrease
-                
+
                 self.assertLessEqual(bid, max_price, f"Bid price for {symbol} jumped too high")
                 self.assertLessEqual(ask, max_price, f"Ask price for {symbol} jumped too high")
                 self.assertGreaterEqual(bid, min_price, f"Bid price for {symbol} dropped too low")

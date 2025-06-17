@@ -110,10 +110,10 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                     logger.info(f"prev_price: {prev_price}, std_dev: {std_dev}, new_price: {new_price}")
                     if new_price >= min_price:  # Ensure price is at least minimum
                         break
-                        
+
                 # If we got here, we have a valid positive price
                 base_price = round(new_price, 2)
-                
+
                 # Ensure base price is at least minimum
                 logger.info(f"min price: {min_price}")
                 base_price = max(base_price, min_price)
@@ -122,15 +122,15 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 # Use a multiple of the standard deviation for the spread
                 spread = std_dev * 2  # Using 2x std dev as spread
                 logger.info(f"Using spread: {spread}")
-                
+
                 # Ensure bid price is positive and ask price is valid
                 bid = max(round(base_price - spread, 2), market_data_config.initial_price_range[0])
                 ask = max(round(base_price + spread, 2), market_data_config.initial_price_range[0])
-                
+
                 # Store in data dictionary
                 data[f"{symbol}_bid"] = bid
                 data[f"{symbol}_ask"] = ask
-                
+
                 logger.info(f"Generated prices for {symbol}: base={base_price}, bid={bid}, ask={ask}")
                 # Store in previous_prices dictionary with positive price
                 previous_prices[symbol] = base_price  # Store base price (midpoint) for next iteration
