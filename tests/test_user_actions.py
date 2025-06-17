@@ -29,7 +29,9 @@ class TestRemoveProduct(unittest.TestCase):
         Test removing a forex product.
         """
         products_fixture = PRODUCTS.copy()
-        products_fixture.remove({"symbol": "EUR/USD", "name": "Euro - US Dollar exchange rate", "category": "forex"})
+        # Find the EUR/USD product in the list
+        eurusd_product = next(p for p in products_fixture if p['symbol'] == 'EUR/USD')
+        products_fixture.remove(eurusd_product)
         symbol = "EUR/USD"
         _remove_product(symbol)
         self.assertEqual(PRODUCTS, products_fixture)

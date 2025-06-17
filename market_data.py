@@ -66,16 +66,19 @@ class MarketDataConfig:
 
 # Global config and state instances
 market_data_config = MarketDataConfig()
-previous_prices = {}  # Store previous prices to maintain continuity between calls
+previous_prices = {
+    'EUR/USD': 1.15,    # Current EUR/USD rate as of 6/16/2025
+    'GBP/USD': 1.36,    # Current GBP/USD rate as of 6/16/2025
+    'USD/JPY': 144.91,  # Current USD/JPY rate as of 6/16/2025
+    'XAU/USD': 3420.10, # Current Gold price in USD as of 6/16/2025
+    'AAPL': 198.42,     # Current Apple stock price as of 6/16/2025
+    'GOOGL': 176.77,    # Current Google stock price as of 6/16/2025
+    'MSFT': 479.14      # Current Microsoft stock price as of 6/16/2025
+}
 
-# Initialize previous_prices with default values if empty
-for product in PRODUCTS:
-    symbol = product['symbol'].upper()
-    previous_prices[symbol] = random.uniform(*market_data_config.initial_price_range)
-    logger.info(f"Initialized previous price for {symbol}: {previous_prices[symbol]}")
-
-# Global config and state instances
-market_data_config = MarketDataConfig()
+# Log initialization
+for symbol, price in previous_prices.items():
+    logger.info(f"Initialized previous price for {symbol}: {price}")
 
 def get_market_data(market_data_source='twelvedata', verbosity=1):
     """Fetch market data from Twelve Data API or return random prices when in none mode"""
