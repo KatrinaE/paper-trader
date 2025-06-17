@@ -122,7 +122,9 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 base_price = max(base_price, min_price)
 
                 # Generate bid and ask prices with bid slightly lower than ask
-                spread = random.uniform(market_data_config.min_bid_ask_spread, market_data_config.max_bid_ask_spread)
+                # Use a multiple of the standard deviation for the spread
+                spread = std_dev * 2  # Using 2x std dev as spread
+                logger.info(f"Using spread: {spread}")
                 
                 # Ensure bid price is positive and ask price is valid
                 bid = max(round(base_price - spread, 2), market_data_config.initial_price_range[0])
@@ -132,6 +134,7 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 data[f"{symbol}_bid"] = bid
                 data[f"{symbol}_ask"] = ask
                 
+                logger.info(f"Generated prices for {symbol}: base={base_price}, bid={bid}, ask={ask}")
                 # Store in previous_prices dictionary with positive price
                 previous_prices[symbol] = base_price  # Store base price (midpoint) for next iteration
 
