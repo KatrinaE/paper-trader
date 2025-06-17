@@ -29,7 +29,7 @@ rate_limiter = RateLimiter(MAX_CALLS_PER_MINUTE, CALL_WINDOW_SECONDS)
 class MarketDataConfig:
     def __init__(self,
                  initial_price_range: tuple = (0, 100),
-                 modeled_price_delta_percent: float = 0.05,
+                 modeled_price_delta_percent: float = 0.005,
                  z_score: float = 2.0,
                  min_bid_ask_spread: float = 0.01,
                  max_bid_ask_spread: float = 0.5):
