@@ -64,21 +64,21 @@ console = Console()
 
 def create_layout(market_data, trading_book):
     """Create a layout with separate panels for Forex, Commodities, Stocks, and Trading Book"""
-    # Create tables for each category
+    # Create tables for each category with fixed column widths
     forex_table = Table(show_header=True, header_style="bold")
     forex_table.add_column("Product", style="cyan", no_wrap=True)
-    forex_table.add_column("Bid", style="green")
-    forex_table.add_column("Ask", style="red")
+    forex_table.add_column("Bid", style="green", width=10)  # Fixed width for 4 digits + 2 decimal places + decimal point
+    forex_table.add_column("Ask", style="red", width=10)
 
     commodities_table = Table(show_header=True, header_style="bold")
     commodities_table.add_column("Product", style="cyan", no_wrap=True)
-    commodities_table.add_column("Bid", style="green")
-    commodities_table.add_column("Ask", style="red")
+    commodities_table.add_column("Bid", style="green", width=10)
+    commodities_table.add_column("Ask", style="red", width=10)
 
     stocks_table = Table(show_header=True, header_style="bold")
     stocks_table.add_column("Product", style="cyan", no_wrap=True)
-    stocks_table.add_column("Bid", style="green")
-    stocks_table.add_column("Ask", style="red")
+    stocks_table.add_column("Bid", style="green", width=10)
+    stocks_table.add_column("Ask", style="red", width=10)
 
     # Add data to market tables
     for config in PRODUCTS:
@@ -156,36 +156,42 @@ def create_layout(market_data, trading_book):
     # Add data to market tables
     for config in PRODUCTS:
         if config['category'] == 'forex':
+            bid = market_data.get(f"{config['symbol']}_bid", 'N/A')
+            ask = market_data.get(f"{config['symbol']}_ask", 'N/A')
             forex_table.add_row(
                 config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                f"{float(bid):8.2f}" if bid != 'N/A' else 'N/A',
+                f"{float(ask):8.2f}" if ask != 'N/A' else 'N/A'
             )
         elif config['category'] == 'commodities':
+            bid = market_data.get(f"{config['symbol']}_bid", 'N/A')
+            ask = market_data.get(f"{config['symbol']}_ask", 'N/A')
             commodities_table.add_row(
                 config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                f"{float(bid):8.2f}" if bid != 'N/A' else 'N/A',
+                f"{float(ask):8.2f}" if ask != 'N/A' else 'N/A'
             )
         elif config['category'] == 'stocks':
+            bid = market_data.get(f"{config['symbol']}_bid", 'N/A')
+            ask = market_data.get(f"{config['symbol']}_ask", 'N/A')
             stocks_table.add_row(
                 config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                f"{float(bid):8.2f}" if bid != 'N/A' else 'N/A',
+                f"{float(ask):8.2f}" if ask != 'N/A' else 'N/A'
             )
 
     # Create panels for each table
-    forex_panel = Panel(forex_table, title="Forex", border_style="cyan")
-    commodities_panel = Panel(commodities_table, title="Commodities", border_style="yellow")
-    stocks_panel = Panel(stocks_table, title="Stocks", border_style="magenta")
+    forex_panel = Panel(forex_table, title="Forex", border_style="green")
+    commodities_panel = Panel(commodities_table, title="Commodities", border_style="green")
+    stocks_panel = Panel(stocks_table, title="Stocks", border_style="green")
     trading_panel = Panel(trading_table, title="Trading Book", border_style="green")
 
     # Create columns for each row
     top_row = Columns([forex_panel, commodities_panel], equal=True)
     bottom_row = Columns([stocks_panel, trading_panel], equal=True)
 
-    # Create the final layout with two rows
-    return Group(top_row, bottom_row)
+    # Create the final layout with three rows
+    return Group(top_row, bottom_row, controls_panel)
 
 def update_display(market_data, trading_book):
     """Update the display with current market data and trading book"""
