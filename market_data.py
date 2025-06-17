@@ -66,14 +66,11 @@ class MarketDataConfig:
 
 # Global config and state instances
 market_data_config = MarketDataConfig()
+
+# Initialize previous_prices with initial prices from product definitions
 previous_prices = {
-    'EUR/USD': 1.15,    # Current EUR/USD rate as of 6/16/2025
-    'GBP/USD': 1.36,    # Current GBP/USD rate as of 6/16/2025
-    'USD/JPY': 144.91,  # Current USD/JPY rate as of 6/16/2025
-    'XAU/USD': 3420.10, # Current Gold price in USD as of 6/16/2025
-    'AAPL': 198.42,     # Current Apple stock price as of 6/16/2025
-    'GOOGL': 176.77,    # Current Google stock price as of 6/16/2025
-    'MSFT': 479.14      # Current Microsoft stock price as of 6/16/2025
+    product['symbol']: product.get('initial_price', 100)  # Default to 100 if no initial_price
+    for product in PRODUCTS
 }
 
 # Log initialization
