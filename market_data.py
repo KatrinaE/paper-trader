@@ -51,9 +51,9 @@ def generate_market_event(product: Product):
     direction = random.choice([EVENT_DIRECTION_UP, EVENT_DIRECTION_DOWN])
     magnitude = random.uniform(0, market_data_config.max_event_magnitude)
     event = Event(product.symbol, direction, magnitude, datetime.now())
-    active_events[product.symbol] = event
     logger.info(f"Market event generated: {event.product} {event.direction} " + \
             f"{event.magnitude*100:.2f}% at {event.timestamp}")
+    return event
 
 
 class MarketDataConfig:
@@ -122,8 +122,6 @@ previous_prices = {
     for product in PRODUCTS
 }
 
-# Global event tracking
-active_events: Dict[str, Event] = {}  # Maps product to active event
 
 # Log initialization
 for product, price in previous_prices.items():
@@ -166,28 +164,25 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 # Generate new price using normal distribution
                 std_dev = market_data_config.model_std_dev(prev_price)
 
-                # Check if there's an active event for this product
-                event = active_events.get(symbol)
-                if event:
-                    logger.info(f"Applying event to {symbol}: {event}")
-                    prev_price = apply_event_to_price(event, prev_price)  # Apply event effect to previous price
-                    # Clear the event after applying it
-                    del active_events[symbol]
-
-                # Calculate probability of generating a new event for this product
+                # Generate a new event with probability
                 event_prob = random.uniform(
                     market_data_config.min_event_probability,
                     market_data_config.max_event_probability
                 )
                 if random.random() < event_prob:
-                    generate_market_event(product)
+                    event = generate_market_event(product)
+                    old_price = apply_event_to_price(event, prev_price)
+                    logger.info(f"Generated event: {event}. old_price is now: {old_price}")
+                else:
+                    old_price = prev_price
+                    logger.info(f"No event generated for {symbol}. old_price is now: {old_price}")
 
                 # Generate new price with exponential decay in tails
                 # Ensure we never accept a negative price
                 min_price = market_data_config.initial_price_range[0]
                 while True:
-                    new_price = random.gauss(prev_price, std_dev)
-                    logger.info(f"prev_price: {prev_price}, std_dev: {std_dev}, new_price: {new_price}")
+                    new_price = random.gauss(old_price, std_dev)
+                    logger.info(f"old_price: {old_price}, std_dev: {std_dev}, new_price: {new_price}")
                     if new_price >= min_price:  # Ensure price is at least minimum
                         break
 
