@@ -149,8 +149,6 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 # Get the product's initial price
                 prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
                 logger.info(f"Using previous price {prev_price} for product {symbol}")
-                prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
-                logger.info(f"Using previous price {prev_price} for product {symbol}")
                 # Ensure we use uppercase symbol to match previous_prices keys
                 logger.info(f"previous_prices: {previous_prices}")
                 # Get previous price using symbol as key
@@ -175,7 +173,7 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                     logger.info(f"Generated event: {event}. old_price is now: {old_price}")
                 else:
                     old_price = prev_price
-                    logger.info(f"No event generated for {symbol}. old_price is now: {old_price}")
+                    logger.info(f"No event generated for {symbol}")
 
                 # Generate new price with exponential decay in tails
                 # Ensure we never accept a negative price
@@ -190,8 +188,9 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 base_price = round(new_price, 2)
 
                 # Ensure base price is at least minimum
-                logger.info(f"min price: {min_price}")
+                min_price = market_data_config.initial_price_range[0]
                 base_price = max(base_price, min_price)
+                logger.info(f"min price: {min_price}, final base price: {base_price}")
 
                 # Generate bid and ask prices with bid slightly lower than ask
                 # Use a multiple of the standard deviation for the spread
