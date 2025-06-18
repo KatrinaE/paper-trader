@@ -98,18 +98,18 @@ class MarketDataConfig:
         self.volatility_duration_jitter = volatility_duration_jitter
         self.volatility_factor = volatility_factor
         self.volatility_frequency = volatility_frequency
-        
+
         # Calculate event probability per second
         self.event_probability = events_per_minute / 60.0
-        
+
         # Calculate jitter parameters
         self.event_jitter = event_jitter
         self.min_event_probability = self.event_probability * (1 - event_jitter)
         self.max_event_probability = self.event_probability * (1 + event_jitter)
-        
+
         # Store base event probability for volatile periods
         self._base_event_probability = self.event_probability
-        
+
         # Log configuration settings
         logger.debug(f"MarketDataConfig initialized with: " +
                      f"price_range={initial_price_range}, " +
@@ -273,8 +273,8 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 logger.warning("API credits are exhausted")
 
             logger.info(
-                f"Current API credit usage: {usage_data.get('current_usage', 'N/A')}/{usage_data.get('plan_limit', 'N/A')}" + \
-                    f"; Daily API credit usage: {usage_data.get('daily_usage', 'N/A')}/{usage_data.get('plan_daily_limit', 'N/A')}")
+                f"Current API credit usage: {usage_data.get('current_usage', 'N/A')}/{usage_data.get('plan_limit', 'N/A')}; "
+                f"Daily API credit usage: {usage_data.get('daily_usage', 'N/A')}/{usage_data.get('plan_daily_limit', 'N/A')}")
             if usage_data.get('current_usage', 0) >= usage_data.get('plan_limit', 0) or \
                 usage_data.get('daily_usage', 0) >= usage_data.get('plan_daily_limit', 0):
                 logger.warning("No credits remaining! Please upgrade your plan or wait for credits to reset.")
