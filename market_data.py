@@ -46,8 +46,6 @@ CALL_WINDOW_SECONDS = 60  # 1 minute
 # Initialize rate limiter
 rate_limiter = RateLimiter(MAX_CALLS_PER_MINUTE, CALL_WINDOW_SECONDS)
 
-# Market data configuration
-# Market event tuple format: (product, direction, magnitude, timestamp)
 def apply_event_to_price(event: Event, price: float) -> float:
     """Apply market event to a price."""
     if event.direction == EVENT_DIRECTION_UP:
@@ -101,22 +99,12 @@ class MarketDataConfig:
         logger.debug(f"MarketDataConfig initialized with: "
                      f"price_range={initial_price_range}, "
                      f"z_score={self.z_score}, "
-                     f"delta_percent={modeled_price_delta_percent*100}%, "
+                     f"modeled_price_delta_percent={modeled_price_delta_percent*100}%, "
                      f"spread={min_bid_ask_spread}-{max_bid_ask_spread}, "
                      f"events/min={events_per_minute}, "
                      f"jitter={event_jitter*100}%, "
                      f"prob_range={self.min_event_probability:.6f}-{self.max_event_probability:.6f}, "
                      f"max_magnitude={max_event_magnitude*100}%")
-
-
-        # Log configuration settings
-        logger.debug(f"Config initialized with settings:")
-        logger.debug(f"  Initial price range: {initial_price_range}")
-        logger.debug(f"  Z-score: {self.z_score}")
-        logger.debug(f"  Modeled price delta percent: {modeled_price_delta_percent*100}%")
-        logger.debug(f"  Bid-ask spread range: {min_bid_ask_spread}-{max_bid_ask_spread}")
-        logger.debug(f"  Z-score: {self.z_score:.4f}")
-
 
     def model_std_dev(self, prev_price: float) -> float:
         """Model standard deviation based on current price and given price range and z-score.
