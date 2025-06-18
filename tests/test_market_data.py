@@ -107,11 +107,11 @@ class TestMarketData(unittest.TestCase):
         try:
             # Get initial prices
             market_data = get_market_data(market_data_source='none')
-            
+
             # Get initial bid price for EUR/USD
             symbol = "EUR/USD"
             initial_bid = market_data[f"{symbol}_bid"]
-            
+
             # Call get_market_data multiple times to ensure we see an event
             for _ in range(10):  # Try 10 iterations
                 market_data = get_market_data(market_data_source='none')
@@ -121,10 +121,10 @@ class TestMarketData(unittest.TestCase):
             else:
                 # If we didn't see a price change after 10 iterations, fail
                 self.fail("Price did not change after 10 iterations of market data updates")
-            
+
             # Verify price changed (it should have changed due to high event frequency)
             self.assertNotEqual(initial_bid, new_bid, "Price did not change after event")
-            
+
             # Verify price is still within reasonable bounds
             product = next(p for p in PRODUCTS if p.symbol == symbol)
             initial_price = product.initial_price
