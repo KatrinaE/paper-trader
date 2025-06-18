@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from main import PRODUCTS
+from products import PRODUCTS, Product
 from market_data import get_market_data, market_data_config, MarketDataConfig, active_events, Event
 from datetime import datetime
 
@@ -14,6 +14,7 @@ class TestMarketData(unittest.TestCase):
         """Clean up after each test"""
         global active_events
         active_events.clear()  # Clear events after test
+
     def test_get_market_data_none_mode_no_api_calls(self):
         """
         Test that get_market_data with 'none' mode doesn't call API endpoints
@@ -43,7 +44,7 @@ class TestMarketData(unittest.TestCase):
 
         # Verify price stability across all iterations
         for product in PRODUCTS:
-            symbol = product['symbol'].upper()
+            symbol = product.symbol.upper()
 
             # Get all bid and ask prices for this symbol across iterations
             bids = [result[f"{symbol}_bid"] for result in results]
@@ -61,8 +62,7 @@ class TestMarketData(unittest.TestCase):
             # Verify price continuity across iterations
             # Check that prices are not jumping to extreme values
             for bid, ask in zip(bids, asks):
-                # Get the product's initial price
-                initial_price = product['initial_price']
+                initial_price = product.initial_price
 
                 # Calculate bounds based on initial price
                 max_price = initial_price * 1.5  # Allow up to 50% increase
@@ -90,9 +90,8 @@ class TestMarketData(unittest.TestCase):
                 self.assertGreaterEqual(price, 0, f"Price for {symbol} is negative: {price}")
                 # Get the product's initial price
                 product_symbol = symbol[:-4]  # Remove _bid or _ask suffix
-                product = next(p for p in PRODUCTS if p['symbol'] == product_symbol)
-                initial_price = product['initial_price']
-
+                product = next(p for p in PRODUCTS if p.symbol == product_symbol)
+                initial_price = product.initial_price
                 # Verify price is within reasonable bounds
                 max_price = initial_price * 1.5  # Allow up to 50% increase
                 min_price = initial_price * 0.5  # Allow down to 50% decrease
@@ -140,8 +139,8 @@ class TestMarketData(unittest.TestCase):
         )
 
         # Verify price is still within reasonable bounds
-        product = next(p for p in PRODUCTS if p['symbol'] == symbol)
-        initial_price = product['initial_price']
+        product = next(p for p in PRODUCTS if p.symbol == symbol)
+        initial_price = product.initial_price
         max_price = initial_price * 1.5
         min_price = initial_price * 0.5
         self.assertLessEqual(new_bid, max_price, f"New bid price too high: {new_bid}")

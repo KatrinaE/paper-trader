@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 from exchange import Exchange
-from products import PRODUCTS
+from products import PRODUCTS, Product
 from trading import Order, Fill
 from trading_book import TradingBook
 from user_actions import BUY, SELL, _add_product, _remove_product, _trade_product
@@ -14,14 +14,18 @@ class TestAddProduct(unittest.TestCase):
         Test adding a new forex product
         """
         products_fixture = PRODUCTS.copy()
-        new_product = {
-            "symbol": "NZD/USD",
-            "name": "New Zealand Dollar - US Dollar exchange rate",
-            "category": "forex"
-        }
+        new_product = Product(
+            symbol="NZD/USD",
+            name="New Zealand Dollar - US Dollar exchange rate",
+            category="forex",
+            initial_price=100.0  # Same as default in _add_product
+        )
         products_fixture.append(new_product)
-        _add_product(new_product["symbol"], new_product["name"], new_product["category"])
-        self.assertEqual(PRODUCTS, products_fixture)
+        _add_product(new_product.symbol, new_product.name, new_product.category)
+        # Convert both lists to sets of tuples for comparison
+        products_set = {(p.symbol, p.name, p.category, p.initial_price) for p in PRODUCTS}
+        fixture_set = {(p.symbol, p.name, p.category, p.initial_price) for p in products_fixture}
+        self.assertEqual(products_set, fixture_set)
 
 class TestRemoveProduct(unittest.TestCase):
     def test_remove_forex(self):
@@ -30,7 +34,7 @@ class TestRemoveProduct(unittest.TestCase):
         """
         products_fixture = PRODUCTS.copy()
         # Find the EUR/USD product in the list
-        eurusd_product = next(p for p in products_fixture if p['symbol'] == 'EUR/USD')
+        eurusd_product = next(p for p in products_fixture if p.symbol == 'EUR/USD')
         products_fixture.remove(eurusd_product)
         symbol = "EUR/USD"
         _remove_product(symbol)
@@ -41,7 +45,8 @@ class TestTradeProduct(unittest.TestCase):
         market_data_source = 'none'
         trading_book = TradingBook()
         exchange = Exchange({})
-        product = 'AAPL'
+        # Get a Product instance instead of using string symbol
+        product = next(p for p in PRODUCTS if p.symbol == 'AAPL')
         quantity = 5
         side = BUY
         verbosity = 1
@@ -49,12 +54,12 @@ class TestTradeProduct(unittest.TestCase):
         trading_book_fixture = TradingBook()
 
         # Do not check fill price because it's set nondeterministically by market data
-        fill_fixture = Fill(product, quantity, side, None)
+        fill_fixture = Fill(product.symbol, quantity, side, None)
 
-        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, side, verbosity)
+        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product.symbol, quantity, side, verbosity)
 
         self.assertEqual(trading_book.cash, trading_book_fixture.cash - fill.quantity * fill.price)
-        self.assertEqual(trading_book.positions, {product: quantity})
+        self.assertEqual(trading_book.positions, {product.symbol: quantity})
 
         self.assertEqual(fill.side, fill_fixture.side)
         self.assertEqual(fill.product, fill_fixture.product)
@@ -63,10 +68,11 @@ class TestTradeProduct(unittest.TestCase):
 
     def test_sell_forex(self):
         market_data_source = 'none'
-        product = "AAPL"
+        # Get a Product instance instead of using string symbol
+        product = next(p for p in PRODUCTS if p.symbol == 'AAPL')
         quantity_fixture = 5
         trading_book = TradingBook()
-        trading_book.positions = {product: quantity_fixture}
+        trading_book.positions = {product.symbol: quantity_fixture}
         exchange = Exchange({})
         quantity = 3
         side = SELL
@@ -75,12 +81,12 @@ class TestTradeProduct(unittest.TestCase):
         trading_book_fixture = TradingBook()
 
         # Do not check fill price because it's set nondeterministically by market data
-        fill_fixture = Fill(product, quantity, side, None)
+        fill_fixture = Fill(product.symbol, quantity, side, None)
 
-        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, side, verbosity)
+        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product.symbol, quantity, side, verbosity)
 
         self.assertEqual(trading_book.cash, trading_book_fixture.cash + fill.quantity * fill.price)
-        self.assertEqual(trading_book.positions, {product: quantity_fixture - quantity})
+        self.assertEqual(trading_book.positions, {product.symbol: quantity_fixture - quantity})
 
         self.assertEqual(fill.side, fill_fixture.side)
         self.assertEqual(fill.product, fill_fixture.product)

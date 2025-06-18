@@ -81,24 +81,24 @@ def create_layout(market_data, trading_book):
     stocks_table.add_column("Ask", style="red", width=10)
 
     # Add data to market tables
-    for config in PRODUCTS:
-        if config['category'] == 'forex':
+    for product in PRODUCTS:
+        if product.category == 'forex':
             forex_table.add_row(
-                config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                product.symbol,
+                str(market_data.get(f"{product.symbol}_bid", 'N/A')),
+                str(market_data.get(f"{product.symbol}_ask", 'N/A'))
             )
-        elif config['category'] == 'commodities':
+        elif product.category == 'commodities':
             commodities_table.add_row(
-                config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                product.symbol,
+                str(market_data.get(f"{product.symbol}_bid", 'N/A')),
+                str(market_data.get(f"{product.symbol}_ask", 'N/A'))
             )
-        elif config['category'] == 'stocks':
+        elif product.category == 'stocks':
             stocks_table.add_row(
-                config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                product.symbol,
+                str(market_data.get(f"{product.symbol}_bid", 'N/A')),
+                str(market_data.get(f"{product.symbol}_ask", 'N/A'))
             )
 
     # Create trading book table

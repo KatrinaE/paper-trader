@@ -1,24 +1,17 @@
-import random
-import logging
+from typing import Dict, List, Optional, Tuple, NamedTuple
 from datetime import datetime
-from typing import Optional, Dict, NamedTuple
+import logging
+import random
+import time
+from enum import Enum
+
+from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
+from products import PRODUCTS, Product
+from rate_limiter import RateLimiter
 
 # Event direction constants
 EVENT_DIRECTION_UP = 'up'
 EVENT_DIRECTION_DOWN = 'down'
-
-# Named tuple for market events
-Event = NamedTuple('Event', [
-    ('product', str),
-    ('direction', str),
-    ('magnitude', float),
-    ('timestamp', datetime)
-])
-
-from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
-
-from products import PRODUCTS
-from rate_limiter import RateLimiter
 
 # Named tuple for market events
 Event = NamedTuple('Event', [
@@ -53,12 +46,12 @@ def apply_event_to_price(event: Event, price: float) -> float:
     else:
         return price * (1 - event.magnitude)
 
-def generate_market_event(product: dict):
+def generate_market_event(product: Product):
     """Generate a market event for a specific product."""
     direction = random.choice([EVENT_DIRECTION_UP, EVENT_DIRECTION_DOWN])
     magnitude = random.uniform(0, market_data_config.max_event_magnitude)
-    event = Event(product['symbol'], direction, magnitude, datetime.now())
-    active_events[product['symbol']] = event
+    event = Event(product.symbol, direction, magnitude, datetime.now())
+    active_events[product.symbol] = event
     logger.info(f"Market event generated: {event.product} {event.direction} " + \
             f"{event.magnitude*100:.2f}% at {event.timestamp}")
 
@@ -125,7 +118,7 @@ market_data_config = MarketDataConfig()
 
 # Initialize previous_prices with initial prices from product definitions
 previous_prices = {
-    product['symbol']: product.get('initial_price', 100)  # Default to 100 if no initial_price
+    product.symbol: product.initial_price  # Default to 100 if no initial_price
     for product in PRODUCTS
 }
 
@@ -149,7 +142,7 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
         data = {}
 
         for product in PRODUCTS:
-            symbol = product['symbol'].upper()
+            symbol = product.symbol.upper()
 
             # For first call, generate random initial price
             if not previous_prices:
@@ -160,12 +153,15 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 logger.info(f"Using previous price {prev_price} for product {symbol}")
                 prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
                 logger.info(f"Using previous price {prev_price} for product {symbol}")
-                product = next(p for p in PRODUCTS if p['symbol'] == symbol)
-                logger.info(f"previous_prices: {previous_prices}")
                 # Ensure we use uppercase symbol to match previous_prices keys
+                logger.info(f"previous_prices: {previous_prices}")
                 # Get previous price using symbol as key
                 prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
                 logger.info(f"Using previous price {prev_price} for product {symbol}")
+                product = next((p for p in PRODUCTS if p.symbol == symbol), None)
+                if product is None:
+                    logger.error(f"Product not found for symbol {symbol}")
+                    continue
 
                 # Generate new price using normal distribution
                 std_dev = market_data_config.model_std_dev(prev_price)
@@ -249,28 +245,27 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
         for product in PRODUCTS:
             ts_endpoint = TimeSeriesEndpoint(client)
             ts_endpoint.init(
-                product=product['symbol'].upper(),
+                product=product.symbol.upper(),
                 interval="1min",
                 outputsize=1,
                 timezone="UTC"
             )
             # Log event direction
-            logger.info(f"Generating market event with direction {EVENT_DIRECTION_UP} for product {product['symbol']}")
+            logger.info(f"Generating market event with direction {EVENT_DIRECTION_UP} for product {product.symbol}")
 
             try:
                 df = ts_endpoint.get().as_json()
-                if len(df) > 0:
-                    data[f"{product['symbol'].upper()}_bid"] = float(df[0]['high'])
-                    data[f"{product['symbol'].upper()}_ask"] = float(df[0]['low'])
+                if df:
+                    data[f"{product.symbol.upper()}_bid"] = float(df[0]['high'])
+                    data[f"{product.symbol.upper()}_ask"] = float(df[0]['low'])
                 else:
-                    logger.warning(f"No data returned for {product['symbol']}")
-                    data[f"{product['symbol'].upper()}_bid"] = 'N/A'
-                    data[f"{product['symbol'].upper()}_ask"] = 'N/A'
+                    logger.warning(f"No data returned for {product.symbol}")
+                    data[f"{product.symbol.upper()}_bid"] = 'N/A'
+                    data[f"{product.symbol.upper()}_ask"] = 'N/A'
             except Exception as e:
-                if verbosity >= 1:
-                    logger.error(f"Error fetching {product['symbol']}: {str(e)}")
-                    data[f"{product['symbol'].upper()}_bid"] = 'N/A'
-                    data[f"{product['symbol'].upper()}_ask"] = 'N/A'
+                logger.error(f"Error fetching {product.symbol}: {str(e)}")
+                data[f"{product.symbol.upper()}_bid"] = 'N/A'
+                data[f"{product.symbol.upper()}_ask"] = 'N/A'
 
         return data
     except Exception as e:
