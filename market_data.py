@@ -101,7 +101,7 @@ class MarketDataConfig:
 
         # Calculate event probability per second
         self.event_probability = events_per_minute / 60.0
-
+        
         # Calculate jitter parameters
         self.event_jitter = event_jitter
         self.min_event_probability = self.event_probability * (1 - event_jitter)
@@ -109,7 +109,7 @@ class MarketDataConfig:
 
         # Store base event probability for volatile periods
         self._base_event_probability = self.event_probability
-
+        
         # Log configuration settings
         logger.debug(f"MarketDataConfig initialized with: " +
                      f"price_range={initial_price_range}, " +
@@ -152,7 +152,111 @@ previous_prices = {
 for product, price in previous_prices.items():
     logger.info(f"Initialized previous price for {product}: {price}")
 
-def get_market_data_twelvedata():
+
+def get_market_data(market_data_source='twelvedata', verbosity=1):
+    """Fetch market data from Twelve Data API or return random prices when in none mode"""
+    global current_volatile_period
+    logger.info(f"Fetching market data (source={market_data_source}, verbosity={verbosity})")
+
+    if market_data_source == 'none':
+        # Generate probabilistic prices for all products
+        data = {}
+
+        for product in PRODUCTS:
+            symbol = product.symbol.upper()
+
+            # For first call, generate random initial price
+            if not previous_prices:
+                logger.error("previous_prices is empty")
+            else:
+                prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
+
+            # Check if we should start a new volatile period
+            if random.random() < market_data_config.volatility_frequency:
+                # Add jitter to duration
+                jittered_duration = int(market_data_config.volatility_duration *
+                                      (1 + market_data_config.volatility_duration_jitter * (random.random() - 0.5)))
+                current_volatile_period = VolatilePeriod(
+                    start_time=datetime.now(),
+                    duration_seconds=jittered_duration,
+                    volatility_factor=market_data_config.volatility_factor
+                )
+                logger.info(f"Entering volatile period for {jittered_duration} seconds")
+                
+                # Update event probability for volatile period
+                market_data_config.event_probability = market_data_config._base_event_probability * \
+                    market_data_config.volatility_factor
+                market_data_config.min_event_probability = market_data_config.event_probability * \
+                    (1 - market_data_config.event_jitter)
+                market_data_config.max_event_probability = market_data_config.event_probability * \
+                    (1 + market_data_config.event_jitter)
+
+            # Check if current volatile period has ended
+            if current_volatile_period and datetime.now() > current_volatile_period.start_time + \
+               timedelta(seconds=current_volatile_period.duration_seconds):
+                current_volatile_period = None
+                logger.info("Volatile period ended")
+                # Reset event probability to base value
+                market_data_config.event_probability = market_data_config._base_event_probability
+                market_data_config.min_event_probability = market_data_config.event_probability * \
+                    (1 - market_data_config.event_jitter)
+                market_data_config.max_event_probability = market_data_config.event_probability * \
+                    (1 + market_data_config.event_jitter)
+
+            # If in volatile period, adjust volatility
+            if current_volatile_period:
+                std_dev = market_data_config.model_std_dev(prev_price) * \
+                    current_volatile_period.volatility_factor
+            else:
+                std_dev = market_data_config.model_std_dev(prev_price)
+
+            # Generate a new event with probability
+            event_prob = random.uniform(
+                market_data_config.min_event_probability,
+                market_data_config.max_event_probability
+            )
+            if random.random() < event_prob:
+                event = generate_market_event(product)
+                old_price = apply_event_to_price(event, prev_price)
+                logger.info(f"Generated event: {event}. old_price is now: {old_price}")
+            else:
+                old_price = prev_price
+                logger.info(f"No event generated for {symbol}")
+
+            # Generate new price with exponential decay in tails
+            # Ensure we never accept a negative price
+            min_price = market_data_config.initial_price_range[0]
+            while True:
+                new_price = random.gauss(old_price, std_dev)
+                logger.info(f"old_price: {old_price}, std_dev: {std_dev}, new_price: {new_price}")
+                if new_price >= min_price:  # Ensure price is at least minimum
+                    break
+
+            # If we got here, we have a valid positive price
+            base_price = round(new_price, 2)
+
+            # Ensure base price is at least minimum
+            min_price = market_data_config.initial_price_range[0]
+            base_price = max(base_price, min_price)
+            logger.info(f"min price: {min_price}, final base price: {base_price}")
+
+            # Generate bid and ask prices with bid slightly lower than ask
+            # Use a multiple of the standard deviation for the spread
+            spread = std_dev * 2  # Using 2x std dev as spread
+            logger.info(f"Using spread: {spread}")
+
+            # Ensure bid price is positive and ask price is valid
+            bid = max(round(base_price - spread, 2), market_data_config.initial_price_range[0])
+            ask = max(round(base_price + spread, 2), market_data_config.initial_price_range[0])
+
+            # Store in data dictionary
+            data[f"{symbol}_bid"] = bid
+            data[f"{symbol}_ask"] = ask
+            logger.info(f"Generated prices for {symbol}: base={base_price}, bid={bid}, ask={ask}")
+            previous_prices[symbol] = base_price  # Store base price (midpoint) for next iteration
+
+        return data
+
     rate_limiter.wait_if_needed()
     try:
         if config is None:
@@ -272,7 +376,8 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 logger.info(f"No event generated for {symbol}")
 
             # Generate new price with exponential decay in tails
-            # Ensure we never accept a negative price
+            
+	    # Ensure we never accept a negative price
             min_price = market_data_config.initial_price_range[0]
             while True:
                 new_price = random.gauss(old_price, std_dev)
