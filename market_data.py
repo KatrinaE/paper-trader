@@ -101,7 +101,7 @@ class MarketDataConfig:
 
         # Calculate event probability per second
         self.event_probability = events_per_minute / 60.0
-        
+
         # Calculate jitter parameters
         self.event_jitter = event_jitter
         self.min_event_probability = self.event_probability * (1 - event_jitter)
@@ -109,7 +109,7 @@ class MarketDataConfig:
 
         # Store base event probability for volatile periods
         self._base_event_probability = self.event_probability
-        
+
         # Log configuration settings
         logger.debug(f"MarketDataConfig initialized with: " +
                      f"price_range={initial_price_range}, " +
