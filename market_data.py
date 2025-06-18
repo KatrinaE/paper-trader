@@ -1,11 +1,25 @@
-import random
-import logging
+from typing import Dict, List, Optional, Tuple, NamedTuple
 from datetime import datetime
+import logging
+import random
+import time
+from enum import Enum
 
 from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
-
-from products import PRODUCTS
+from products import PRODUCTS, Product
 from rate_limiter import RateLimiter
+
+# Event direction constants
+EVENT_DIRECTION_UP = 'up'
+EVENT_DIRECTION_DOWN = 'down'
+
+# Named tuple for market events
+Event = NamedTuple('Event', [
+    ('product', str),
+    ('direction', str),
+    ('magnitude', float),
+    ('timestamp', datetime)
+])
 
 # Configure logging
 # Configure logging to only use stream handler
@@ -25,30 +39,65 @@ CALL_WINDOW_SECONDS = 60  # 1 minute
 # Initialize rate limiter
 rate_limiter = RateLimiter(MAX_CALLS_PER_MINUTE, CALL_WINDOW_SECONDS)
 
-# Market data configuration
+def apply_event_to_price(event: Event, price: float) -> float:
+    """Apply market event to a price."""
+    if event.direction == EVENT_DIRECTION_UP:
+        return price * (1 + event.magnitude)
+    else:
+        return price * (1 - event.magnitude)
+
+def generate_market_event(product: Product):
+    """Generate a market event for a specific product."""
+    direction = random.choice([EVENT_DIRECTION_UP, EVENT_DIRECTION_DOWN])
+    magnitude = random.uniform(0, market_data_config.max_event_magnitude)
+    event = Event(product.symbol, direction, magnitude, datetime.now())
+    logger.info(f"Market event generated: {event.product} {event.direction} " + \
+            f"{event.magnitude*100:.2f}% at {event.timestamp}")
+    return event
+
+
 class MarketDataConfig:
     def __init__(self,
                  initial_price_range: tuple = (0, 100),
                  modeled_price_delta_percent: float = 0.005,
                  z_score: float = 2.0,
                  min_bid_ask_spread: float = 0.01,
-                 max_bid_ask_spread: float = 0.5):
-        self.initial_price_range = initial_price_range
+                 max_bid_ask_spread: float = 0.5,
+                 events_per_minute: float = 1.0,  # Default: 1 event per minute
+                 max_event_magnitude: float = 0.1,  # 10% max event size
+                 event_jitter: float = 0.2):  # 20% jitter around target frequency
+        """
+        Initialize market data configuration.
 
+        Args:
+            events_per_minute: Average number of events per minute (can be fractional)
+            event_jitter: Fractional jitter around the target frequency (0 to 1)
+        """
+        self.initial_price_range = initial_price_range
         self.modeled_price_delta_percent = modeled_price_delta_percent
         self.z_score = z_score
-
         self.min_bid_ask_spread = min_bid_ask_spread
         self.max_bid_ask_spread = max_bid_ask_spread
+        self.max_event_magnitude = max_event_magnitude
+
+        # Calculate event probability per second
+        self.event_probability = events_per_minute / 60.0
+
+        # Calculate jitter parameters
+        self.event_jitter = event_jitter
+        self.min_event_probability = self.event_probability * (1 - event_jitter)
+        self.max_event_probability = self.event_probability * (1 + event_jitter)
 
         # Log configuration settings
-        logger.debug(f"Config initialized with settings:")
-        logger.debug(f"  Initial price range: {initial_price_range}")
-        logger.debug(f"  Z-score: {self.z_score}")
-        logger.debug(f"  Modeled price delta percent: {modeled_price_delta_percent*100}%")
-        logger.debug(f"  Bid-ask spread range: {min_bid_ask_spread}-{max_bid_ask_spread}")
-        logger.debug(f"  Z-score: {self.z_score:.4f}")
-
+        logger.debug(f"MarketDataConfig initialized with: "
+                     f"price_range={initial_price_range}, "
+                     f"z_score={self.z_score}, "
+                     f"modeled_price_delta_percent={modeled_price_delta_percent*100}%, "
+                     f"spread={min_bid_ask_spread}-{max_bid_ask_spread}, "
+                     f"events/min={events_per_minute}, "
+                     f"jitter={event_jitter*100}%, "
+                     f"prob_range={self.min_event_probability:.6f}-{self.max_event_probability:.6f}, "
+                     f"max_magnitude={max_event_magnitude*100}%")
 
     def model_std_dev(self, prev_price: float) -> float:
         """Model standard deviation based on current price and given price range and z-score.
@@ -69,13 +118,18 @@ market_data_config = MarketDataConfig()
 
 # Initialize previous_prices with initial prices from product definitions
 previous_prices = {
-    product['symbol']: product.get('initial_price', 100)  # Default to 100 if no initial_price
+    product.symbol: product.initial_price  # Default to 100 if no initial_price
     for product in PRODUCTS
 }
 
+
 # Log initialization
-for symbol, price in previous_prices.items():
-    logger.info(f"Initialized previous price for {symbol}: {price}")
+for product, price in previous_prices.items():
+    logger.info(f"Initialized previous price for {product}: {price}")
+
+# Log initialization
+for product, price in previous_prices.items():
+    logger.info(f"Initialized previous price for {product}: {price}")
 
 def get_market_data(market_data_source='twelvedata', verbosity=1):
     """Fetch market data from Twelve Data API or return random prices when in none mode"""
@@ -86,53 +140,71 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
         data = {}
 
         for product in PRODUCTS:
-            symbol = product['symbol'].upper()
+            symbol = product.symbol.upper()
 
             # For first call, generate random initial price
             if not previous_prices:
                 logger.error("previous_prices is empty")
             else:
-                # Get previous price (use bid as reference)
-                logger.info(f"symbol: {symbol}")
-                logger.info(f"previous_prices: {previous_prices}")
-                # Ensure we use uppercase symbol to match previous_prices keys
+                # Get the product's initial price
                 prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
-                logger.info(f"prev_price: {prev_price}")
+                logger.info(f"Using previous price {prev_price} for product {symbol}")
+                # Ensure we use uppercase symbol to match previous_prices keys
+                logger.info(f"previous_prices: {previous_prices}")
+                # Get previous price using symbol as key
+                prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
+                logger.info(f"Using previous price {prev_price} for product {symbol}")
+                product = next((p for p in PRODUCTS if p.symbol == symbol), None)
+                if product is None:
+                    logger.error(f"Product not found for symbol {symbol}")
+                    continue
 
                 # Generate new price using normal distribution
                 std_dev = market_data_config.model_std_dev(prev_price)
+
+                # Generate a new event with probability
+                event_prob = random.uniform(
+                    market_data_config.min_event_probability,
+                    market_data_config.max_event_probability
+                )
+                if random.random() < event_prob:
+                    event = generate_market_event(product)
+                    old_price = apply_event_to_price(event, prev_price)
+                    logger.info(f"Generated event: {event}. old_price is now: {old_price}")
+                else:
+                    old_price = prev_price
+                    logger.info(f"No event generated for {symbol}")
 
                 # Generate new price with exponential decay in tails
                 # Ensure we never accept a negative price
                 min_price = market_data_config.initial_price_range[0]
                 while True:
-                    new_price = random.gauss(prev_price, std_dev)
-                    logger.info(f"prev_price: {prev_price}, std_dev: {std_dev}, new_price: {new_price}")
+                    new_price = random.gauss(old_price, std_dev)
+                    logger.info(f"old_price: {old_price}, std_dev: {std_dev}, new_price: {new_price}")
                     if new_price >= min_price:  # Ensure price is at least minimum
                         break
-                        
+
                 # If we got here, we have a valid positive price
                 base_price = round(new_price, 2)
-                
+
                 # Ensure base price is at least minimum
-                logger.info(f"min price: {min_price}")
+                min_price = market_data_config.initial_price_range[0]
                 base_price = max(base_price, min_price)
+                logger.info(f"min price: {min_price}, final base price: {base_price}")
 
                 # Generate bid and ask prices with bid slightly lower than ask
                 # Use a multiple of the standard deviation for the spread
                 spread = std_dev * 2  # Using 2x std dev as spread
                 logger.info(f"Using spread: {spread}")
-                
+
                 # Ensure bid price is positive and ask price is valid
                 bid = max(round(base_price - spread, 2), market_data_config.initial_price_range[0])
                 ask = max(round(base_price + spread, 2), market_data_config.initial_price_range[0])
-                
+
                 # Store in data dictionary
                 data[f"{symbol}_bid"] = bid
                 data[f"{symbol}_ask"] = ask
-                
                 logger.info(f"Generated prices for {symbol}: base={base_price}, bid={bid}, ask={ask}")
-                # Store in previous_prices dictionary with positive price
                 previous_prices[symbol] = base_price  # Store base price (midpoint) for next iteration
 
         return data
@@ -167,26 +239,27 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
         for product in PRODUCTS:
             ts_endpoint = TimeSeriesEndpoint(client)
             ts_endpoint.init(
-                symbol=product['symbol'],
+                product=product.symbol.upper(),
                 interval="1min",
                 outputsize=1,
                 timezone="UTC"
             )
+            # Log event direction
+            logger.info(f"Generating market event with direction {EVENT_DIRECTION_UP} for product {product.symbol}")
 
             try:
                 df = ts_endpoint.get().as_json()
-                if len(df) > 0:
-                    data[f"{product['symbol'].upper()}_bid"] = float(df[0]['high'])
-                    data[f"{product['symbol'].upper()}_ask"] = float(df[0]['low'])
+                if df:
+                    data[f"{product.symbol.upper()}_bid"] = float(df[0]['high'])
+                    data[f"{product.symbol.upper()}_ask"] = float(df[0]['low'])
                 else:
-                    logger.warning(f"No data returned for {product['symbol']}")
-                    data[f"{product['symbol'].upper()}_bid"] = 'N/A'
-                    data[f"{product['symbol'].upper()}_ask"] = 'N/A'
+                    logger.warning(f"No data returned for {product.symbol}")
+                    data[f"{product.symbol.upper()}_bid"] = 'N/A'
+                    data[f"{product.symbol.upper()}_ask"] = 'N/A'
             except Exception as e:
-                if verbosity >= 1:
-                    logger.error(f"Error fetching {product['symbol']}: {str(e)}")
-                    data[f"{product['symbol'].upper()}_bid"] = 'N/A'
-                    data[f"{product['symbol'].upper()}_ask"] = 'N/A'
+                logger.error(f"Error fetching {product.symbol}: {str(e)}")
+                data[f"{product.symbol.upper()}_bid"] = 'N/A'
+                data[f"{product.symbol.upper()}_ask"] = 'N/A'
 
         return data
     except Exception as e:

@@ -81,24 +81,24 @@ def create_layout(market_data, trading_book):
     stocks_table.add_column("Ask", style="red", width=10)
 
     # Add data to market tables
-    for config in PRODUCTS:
-        if config['category'] == 'forex':
+    for product in PRODUCTS:
+        if product.category == 'forex':
             forex_table.add_row(
-                config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                product.symbol,
+                str(market_data.get(f"{product.symbol}_bid", 'N/A')),
+                str(market_data.get(f"{product.symbol}_ask", 'N/A'))
             )
-        elif config['category'] == 'commodities':
+        elif product.category == 'commodities':
             commodities_table.add_row(
-                config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                product.symbol,
+                str(market_data.get(f"{product.symbol}_bid", 'N/A')),
+                str(market_data.get(f"{product.symbol}_ask", 'N/A'))
             )
-        elif config['category'] == 'stocks':
+        elif product.category == 'stocks':
             stocks_table.add_row(
-                config['symbol'],
-                str(market_data.get(f"{config['symbol']}_bid", 'N/A')),
-                str(market_data.get(f"{config['symbol']}_ask", 'N/A'))
+                product.symbol,
+                str(market_data.get(f"{product.symbol}_bid", 'N/A')),
+                str(market_data.get(f"{product.symbol}_ask", 'N/A'))
             )
 
     # Create trading book table
@@ -110,7 +110,7 @@ def create_layout(market_data, trading_book):
     # Add positions to trading table
     # Use the same market_data that was passed to the function
     total_value = trading_book.get_total_value(market_data)
-    
+
     # Create a dictionary of current bid prices for our positions
     position_prices = {}
     for product in trading_book.positions:
@@ -216,7 +216,7 @@ def update_market_data_continuously(live, trading_book, exchange, market_data_so
             market_data = get_market_data(market_data_source, verbosity)
             if market_data:
                 exchange.update_market_data(market_data)
-                
+
                 # Update the display
                 renderable = create_layout(market_data, trading_book)
                 live.update(renderable, refresh=True)
@@ -247,9 +247,9 @@ def main(market_data_source='twelvedata', verbosity=1):
 
     # Create Live object
     live = Live(renderable, console=console, auto_refresh=False)
-    
+
     # Start the market data update thread
-    update_thread = Thread(target=update_market_data_continuously, 
+    update_thread = Thread(target=update_market_data_continuously,
                           args=(live, trading_book, exchange, market_data_source, verbosity),
                           daemon=True)
     update_thread.start()

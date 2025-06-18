@@ -18,16 +18,16 @@ class TestTradingBook(unittest.TestCase):
         product = "AAPL"
         quantity = 5
         price = self.market_data.get("AAPL_bid", 100.0)
-        
+
         # Simulate a buy (add to position)
         self.trading_book.cash -= quantity * price
         self.trading_book.add_to_position(product, quantity)
-        
+
         # Verify position is displayed correctly
         positions = self.trading_book.positions
         self.assertIn(product, positions)
         self.assertEqual(positions[product], quantity)
-        
+
         # Verify value calculation
         total_value = self.trading_book.get_total_value(self.market_data)
         expected_value = self.trading_book.cash + (quantity * price)
@@ -39,19 +39,19 @@ class TestTradingBook(unittest.TestCase):
         product = "AAPL"
         quantity = 5
         price = self.market_data.get("AAPL_bid", 100.0)
-        
+
         # Add initial position
         self.trading_book.add_to_position(product, quantity)
-        
+
         # Now sell
         sell_quantity = 2
         self.trading_book.cash += sell_quantity * price
         self.trading_book.remove_from_position(product, sell_quantity)
-        
+
         # Verify position is updated correctly
         remaining_quantity = quantity - sell_quantity
         self.assertEqual(self.trading_book.positions[product], remaining_quantity)
-        
+
         # Verify value calculation
         total_value = self.trading_book.get_total_value(self.market_data)
         expected_value = self.trading_book.cash + (remaining_quantity * price)
@@ -63,15 +63,15 @@ class TestTradingBook(unittest.TestCase):
         product = "AAPL"
         quantity = 5
         initial_price = self.market_data.get("AAPL_bid", 100.0)
-        
+
         # Add initial position
         self.trading_book.cash -= quantity * initial_price
         self.trading_book.add_to_position(product, quantity)
-        
+
         # Get new market data with different prices
         new_market_data = get_market_data('none')
         new_price = new_market_data.get("AAPL_bid", 100.0)
-        
+
         # Verify position value updates with new price
         total_value = self.trading_book.get_total_value(new_market_data)
         expected_value = self.trading_book.cash + (quantity * new_price)

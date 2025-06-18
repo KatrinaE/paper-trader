@@ -1,7 +1,7 @@
 import logging
 from rich.prompt import Prompt
 
-from products import PRODUCTS
+from products import PRODUCTS, Product
 
 # Configure user actions logger
 logger = logging.getLogger('user_actions')
@@ -32,7 +32,9 @@ def add_product(console):
     # No need to return a layout
 
 def _add_product(symbol, name, category):
-    PRODUCTS.append({"symbol": symbol, "name": name, "category": category})
+    # Use the same initial price as the default products
+    initial_price = 100.0  # Default initial price
+    PRODUCTS.append(Product(symbol=symbol, name=name, category=category, initial_price=initial_price))
 
 def remove_product(console):
     """Remove an existing product."""
@@ -65,7 +67,7 @@ class ProductNotFoundError:
 
 def _remove_product(choice):
     for i, config in enumerate(PRODUCTS):
-        if config['symbol'] == choice:
+        if config.symbol == choice:
             return PRODUCTS.pop(i)
     raise ProductNotFoundError
 
