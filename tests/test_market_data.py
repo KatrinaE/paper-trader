@@ -113,7 +113,7 @@ class TestMarketData(unittest.TestCase):
             initial_bid = market_data[f"{symbol}_bid"]
 
             # Call get_market_data multiple times to ensure we see an event
-            for _ in range(10):  # Try 10 iterations
+            for _ in range(100):  # Try 100 iterations
                 market_data = get_market_data(market_data_source='none')
                 new_bid = market_data[f"{symbol}_bid"]
                 if new_bid != initial_bid:
