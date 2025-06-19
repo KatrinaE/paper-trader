@@ -196,11 +196,9 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 market_data_config.event_probability = market_data_config._base_event_probability
 
             # If in volatile period, adjust volatility
+            std_dev = market_data_config.model_std_dev(prev_price)
             if current_volatile_period:
-                std_dev = market_data_config.model_std_dev(prev_price) * \
-                    current_volatile_period.volatility_factor
-            else:
-                std_dev = market_data_config.model_std_dev(prev_price)
+                std_dev *= current_volatile_period.volatility_factor
 
             # Generate a new event with probability
             event_prob = random.uniform(
