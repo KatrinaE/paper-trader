@@ -182,14 +182,10 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                     volatility_factor=market_data_config.volatility_factor
                 )
                 logger.info(f"Entering volatile period for {jittered_duration} seconds")
-                
+
                 # Update event probability for volatile period
                 market_data_config.event_probability = market_data_config._base_event_probability * \
                     market_data_config.volatility_factor
-                market_data_config.min_event_probability = market_data_config.event_probability * \
-                    (1 - market_data_config.event_jitter)
-                market_data_config.max_event_probability = market_data_config.event_probability * \
-                    (1 + market_data_config.event_jitter)
 
             # Check if current volatile period has ended
             if current_volatile_period and datetime.now() > current_volatile_period.start_time + \
@@ -198,10 +194,6 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
                 logger.info("Volatile period ended")
                 # Reset event probability to base value
                 market_data_config.event_probability = market_data_config._base_event_probability
-                market_data_config.min_event_probability = market_data_config.event_probability * \
-                    (1 - market_data_config.event_jitter)
-                market_data_config.max_event_probability = market_data_config.event_probability * \
-                    (1 + market_data_config.event_jitter)
 
             # If in volatile period, adjust volatility
             if current_volatile_period:
