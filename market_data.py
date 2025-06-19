@@ -152,6 +152,65 @@ previous_prices = {
 for product, price in previous_prices.items():
     logger.info(f"Initialized previous price for {product}: {price}")
 
+def get_market_data_twelvedata():
+    rate_limiter.wait_if_needed()
+    try:
+        if config is None:
+            config = market_data_config
+            logger.debug("Using default market data configuration")
+        else:
+            logger.debug("Using custom market data configuration")
+
+        usage_endpoint = APIUsageEndpoint(client)
+        usage_data = usage_endpoint.get().as_json()
+
+        if verbosity >= 2:
+            logger.info(f"API Usage: {usage_data['credits_used']}/{usage_data['credits_total']}")
+            if usage_data['credits_used'] >= usage_data['credits_total']:
+                logger.warning("API credits are exhausted")
+
+            logger.info(
+                f"Current API credit usage: {usage_data.get('current_usage', 'N/A')}/{usage_data.get('plan_limit', 'N/A')}; "
+                f"Daily API credit usage: {usage_data.get('daily_usage', 'N/A')}/{usage_data.get('plan_daily_limit', 'N/A')}")
+            if usage_data.get('current_usage', 0) >= usage_data.get('plan_limit', 0) or \
+                usage_data.get('daily_usage', 0) >= usage_data.get('plan_daily_limit', 0):
+                logger.warning("No credits remaining! Please upgrade your plan or wait for credits to reset.")
+                return {}
+
+        # Fetch market data for each product
+        data = {}
+        for product in PRODUCTS:
+            ts_endpoint = TimeSeriesEndpoint(client)
+            ts_endpoint.init(
+                product=product.symbol.upper(),
+                interval="1min",
+                outputsize=1,
+                timezone="UTC"
+            )
+            # Log event direction
+            logger.info(f"Generating market event with direction {EVENT_DIRECTION_UP} for product {product.symbol}")
+
+            try:
+                df = ts_endpoint.get().as_json()
+                if df:
+                    data[f"{product.symbol.upper()}_bid"] = float(df[0]['high'])
+                    data[f"{product.symbol.upper()}_ask"] = float(df[0]['low'])
+                else:
+                    logger.warning(f"No data returned for {product.symbol}")
+                    data[f"{product.symbol.upper()}_bid"] = 'N/A'
+                    data[f"{product.symbol.upper()}_ask"] = 'N/A'
+            except Exception as e:
+                logger.error(f"Error fetching {product.symbol}: {str(e)}")
+                data[f"{product.symbol.upper()}_bid"] = 'N/A'
+                data[f"{product.symbol.upper()}_ask"] = 'N/A'
+
+        return data
+    except Exception as e:
+        logger.error(f"Error fetching data: {str(e)}")
+        logger.error(f"Full error details: {traceback.format_exc()}")
+        return {}
+
+
 def get_market_data(market_data_source='twelvedata', verbosity=1):
     """Fetch market data from Twelve Data API or return random prices when in none mode"""
     global current_volatile_period
@@ -246,59 +305,4 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
 
         return data
 
-    rate_limiter.wait_if_needed()
-    try:
-        if config is None:
-            config = market_data_config
-            logger.debug("Using default market data configuration")
-        else:
-            logger.debug("Using custom market data configuration")
-
-        usage_endpoint = APIUsageEndpoint(client)
-        usage_data = usage_endpoint.get().as_json()
-
-        if verbosity >= 2:
-            logger.info(f"API Usage: {usage_data['credits_used']}/{usage_data['credits_total']}")
-            if usage_data['credits_used'] >= usage_data['credits_total']:
-                logger.warning("API credits are exhausted")
-
-            logger.info(
-                f"Current API credit usage: {usage_data.get('current_usage', 'N/A')}/{usage_data.get('plan_limit', 'N/A')}; "
-                f"Daily API credit usage: {usage_data.get('daily_usage', 'N/A')}/{usage_data.get('plan_daily_limit', 'N/A')}")
-            if usage_data.get('current_usage', 0) >= usage_data.get('plan_limit', 0) or \
-                usage_data.get('daily_usage', 0) >= usage_data.get('plan_daily_limit', 0):
-                logger.warning("No credits remaining! Please upgrade your plan or wait for credits to reset.")
-                return {}
-
-        # Fetch market data for each product
-        data = {}
-        for product in PRODUCTS:
-            ts_endpoint = TimeSeriesEndpoint(client)
-            ts_endpoint.init(
-                product=product.symbol.upper(),
-                interval="1min",
-                outputsize=1,
-                timezone="UTC"
-            )
-            # Log event direction
-            logger.info(f"Generating market event with direction {EVENT_DIRECTION_UP} for product {product.symbol}")
-
-            try:
-                df = ts_endpoint.get().as_json()
-                if df:
-                    data[f"{product.symbol.upper()}_bid"] = float(df[0]['high'])
-                    data[f"{product.symbol.upper()}_ask"] = float(df[0]['low'])
-                else:
-                    logger.warning(f"No data returned for {product.symbol}")
-                    data[f"{product.symbol.upper()}_bid"] = 'N/A'
-                    data[f"{product.symbol.upper()}_ask"] = 'N/A'
-            except Exception as e:
-                logger.error(f"Error fetching {product.symbol}: {str(e)}")
-                data[f"{product.symbol.upper()}_bid"] = 'N/A'
-                data[f"{product.symbol.upper()}_ask"] = 'N/A'
-
-        return data
-    except Exception as e:
-        logger.error(f"Error fetching data: {str(e)}")
-        logger.error(f"Full error details: {traceback.format_exc()}")
-        return {}
+    get_market_data_from_twelvedata()
