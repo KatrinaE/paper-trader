@@ -216,6 +216,8 @@ def update_market_data_continuously(live, trading_book, exchange, market_data_so
             market_data = get_market_data(market_data_source, verbosity)
             if market_data:
                 exchange.update_market_data(market_data)
+                # Process fills to update cash and positions
+                trading_book.process_fills()
 
                 # Update the display
                 renderable = create_layout(market_data, trading_book)
@@ -229,6 +231,7 @@ def main(market_data_source='twelvedata', verbosity=1):
     # Initialize trading book and exchange
     trading_book = TradingBook()
     exchange = Exchange({})
+    trading_book.exchange = exchange
 
     # Create initial layout
     market_data = get_market_data(market_data_source, verbosity)
