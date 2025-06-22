@@ -102,7 +102,13 @@ def _trade_product(market_data_source, exchange, trading_book, product, quantity
     exchange.update_market_data(market_data)
 
     # Create and execute order
-    order = Order(product, quantity, side)
+    order = Order(
+        order_id=1,
+        product=product,
+        quantity=quantity,
+        side=Order.OrderSide.BUY if side == BUY else Order.OrderSide.SELL,
+        order_type=Order.OrderType.MARKET
+    )
     fill = exchange.execute_order(order)
 
     # Update trading book

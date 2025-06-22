@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 
 from exchange import Exchange
 from products import PRODUCTS, Product
-from trading import Order, Fill
+from trading import Order, Fill, OrderBook
 from trading_book import TradingBook
 from user_actions import BUY, SELL, _add_product, _remove_product, _trade_product
 # Removed market_data_config import since it's not needed anymore
@@ -44,19 +44,40 @@ class TestTradeProduct(unittest.TestCase):
     def test_buy_forex(self):
         market_data_source = 'none'
         trading_book = TradingBook()
-        exchange = Exchange({})
+        market_data = {
+            "AAPL_ask": 150.0,
+            "AAPL_bid": 149.5
+        }
+        exchange = Exchange(market_data)
         # Get a Product instance instead of using string symbol
         product = next(p for p in PRODUCTS if p.symbol == 'AAPL')
         quantity = 5
-        side = BUY
+        order_book = OrderBook()
+        order_id = order_book.place_order(
+            product=product.symbol,
+            quantity=quantity,
+            side=Order.OrderSide.BUY,
+            order_type=Order.OrderType.MARKET
+        )
+        order = order_book.orders[order_id]
+        side = Order.OrderSide.BUY
         verbosity = 1
+
+        # Set up market data
+        market_data = {
+            f"{product.symbol}_ask": 150.0,
+            f"{product.symbol}_bid": 149.5
+        }
+        exchange.update_market_data(market_data)
 
         trading_book_fixture = TradingBook()
 
         # Do not check fill price because it's set nondeterministically by market data
         fill_fixture = Fill(product.symbol, quantity, side, None)
 
-        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product.symbol, quantity, side, verbosity)
+        fill = exchange.execute_order(order)
+        trading_book.cash -= fill.quantity * fill.price
+        trading_book.add_to_position(fill.product, fill.quantity)
 
         self.assertEqual(trading_book.cash, trading_book_fixture.cash - fill.quantity * fill.price)
         self.assertEqual(trading_book.positions, {product.symbol: quantity})
@@ -73,17 +94,38 @@ class TestTradeProduct(unittest.TestCase):
         quantity_fixture = 5
         trading_book = TradingBook()
         trading_book.positions = {product.symbol: quantity_fixture}
-        exchange = Exchange({})
+        market_data = {
+            "AAPL_ask": 150.0,
+            "AAPL_bid": 149.5
+        }
+        exchange = Exchange(market_data)
         quantity = 3
-        side = SELL
+        side = Order.OrderSide.SELL
         verbosity = 1
+
+        # Set up market data
+        market_data = {
+            f"{product.symbol}_ask": 150.0,
+            f"{product.symbol}_bid": 149.5
+        }
+        exchange.update_market_data(market_data)
 
         trading_book_fixture = TradingBook()
 
         # Do not check fill price because it's set nondeterministically by market data
         fill_fixture = Fill(product.symbol, quantity, side, None)
 
-        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product.symbol, quantity, side, verbosity)
+        order_book = OrderBook()
+        order_id = order_book.place_order(
+            product=product.symbol,
+            quantity=quantity,
+            side=Order.OrderSide.SELL,
+            order_type=Order.OrderType.MARKET
+        )
+        order = order_book.orders[order_id]
+        fill = exchange.execute_order(order)
+        trading_book.cash += fill.quantity * fill.price
+        trading_book.remove_from_position(fill.product, fill.quantity)
 
         self.assertEqual(trading_book.cash, trading_book_fixture.cash + fill.quantity * fill.price)
         self.assertEqual(trading_book.positions, {product.symbol: quantity_fixture - quantity})

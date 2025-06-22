@@ -17,9 +17,9 @@ class Exchange:
         logger.info(f"Executing {order.side} order for {order.quantity} {order.product}")
 
         price = None
-        if order.side == 'buy':
+        if order.side == Order.OrderSide.BUY:
             price = self.market_data.get(f"{order.product}_ask", None)
-        elif order.side == 'sell':
+        elif order.side == Order.OrderSide.SELL:
             price = self.market_data.get(f"{order.product}_bid", None)
 
         if price is None:
