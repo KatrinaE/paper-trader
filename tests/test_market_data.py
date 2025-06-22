@@ -148,13 +148,13 @@ class TestMarketData(unittest.TestCase):
         start_time = datetime.now()
         duration = 60  # 1 minute
         volatility_factor = 2.0
-        
+
         period = VolatilePeriod(
             start_time=start_time,
             duration_seconds=duration,
             volatility_factor=volatility_factor
         )
-        
+
         self.assertEqual(period.start_time, start_time)
         self.assertEqual(period.duration_seconds, duration)
         self.assertEqual(period.volatility_factor, volatility_factor)
@@ -165,13 +165,13 @@ class TestMarketData(unittest.TestCase):
         """
         base_duration = 60  # 1 minute
         jitter = 0.2  # 20% jitter
-        
+
         # Test with positive jitter
         random.seed(42)  # For consistent results
         jittered_duration = int(base_duration * (1 + jitter * (random.random() - 0.5)))
         self.assertGreater(jittered_duration, base_duration * (1 - jitter))
         self.assertLess(jittered_duration, base_duration * (1 + jitter))
-        
+
         # Test with negative jitter
         random.seed(100)  # Different seed
         jittered_duration = int(base_duration * (1 + jitter * (random.random() - 0.5)))
@@ -185,13 +185,13 @@ class TestMarketData(unittest.TestCase):
         # Set up test configuration
         market_data_config.volatility_factor = 2.0  # 2x volatility
         market_data_config._base_event_probability = 0.1  # 10% base probability
-        
+
         # Test price volatility
         prev_price = 100.0
         std_dev = market_data_config.model_std_dev(prev_price)
         volatile_std_dev = std_dev * market_data_config.volatility_factor
         self.assertEqual(volatile_std_dev, std_dev * 2.0)
-        
+
         # Test event probability
         base_prob = market_data_config._base_event_probability
         volatile_prob = base_prob * market_data_config.volatility_factor
