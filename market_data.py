@@ -141,6 +141,7 @@ class MarketDataConfig:
 # Global config and state instances
 market_data_config = MarketDataConfig()
 current_volatile_period: Optional[VolatilePeriod] = None
+previous_prices: Dict[str, float] = {}  # Store previous prices for each symbol
 
 # Initialize previous_prices with initial prices from product definitions
 previous_prices = {
@@ -223,11 +224,8 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
         for product in PRODUCTS:
             symbol = product.symbol.upper()
 
-            # For first call, generate random initial price
-            if not previous_prices:
-                logger.error("previous_prices is empty")
-            else:
-                prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
+            # Get previous price or generate initial price
+            prev_price = previous_prices.get(symbol, random.uniform(*market_data_config.initial_price_range))
 
             # Check if we should start a new volatile period
             if random.random() < market_data_config.volatility_frequency:

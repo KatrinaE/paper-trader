@@ -4,7 +4,7 @@ import argparse
 import time
 import traceback
 from threading import Thread
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 # Initialize logging
 from logging_config import logger
@@ -33,6 +33,23 @@ from exchange import Exchange
 from trading import Order, Fill
 from trading_book import TradingBook
 from user_actions import add_product, remove_product, buy_product, sell_product
+
+def format_active_orders(orders: Dict[int, Order]) -> List[Dict[str, str]]:
+    """Format active orders for display"""
+    formatted_orders = []
+    for order in orders.values():
+        order_type = "LIMIT" if order.is_limit() else "MARKET"
+        limit_price = f"@ ${order.limit_price:.2f}" if order.is_limit() else ""
+        side = "BUY" if order.is_buy() else "SELL"
+        formatted_orders.append({
+            "Order ID": str(order.order_id),
+            "Product": order.product,
+            "Side": side,
+            "Type": order_type,
+            "Quantity": str(order.remaining_quantity()),
+            "Limit Price": limit_price
+        })
+    return formatted_orders
 
 
 class RateLimiter:
@@ -127,8 +144,9 @@ def create_layout(market_data, trading_book):
     orders_table.add_column("Limit Price", style="green")
 
     # Add active orders to orders table
-    active_orders = trading_book.get_formatted_active_orders()
-    for order in active_orders:
+    active_orders = trading_book.get_active_orders()
+    formatted_orders = format_active_orders(active_orders)
+    for order in formatted_orders:
         orders_table.add_row(
             order["Order ID"],
             order["Product"],
@@ -148,9 +166,6 @@ def create_layout(market_data, trading_book):
     # Create columns for each row
     top_row = Columns([forex_panel, commodities_panel], equal=True)
     middle_row = Columns([stocks_panel, trading_panel], equal=True)
-
-    # Create controls panel
-    controls_panel = Panel(Text("Controls Panel"), title="Controls", border_style="green")
     bottom_row = Columns([orders_panel, controls_panel], equal=True)
 
     # Add positions to trading table
@@ -177,11 +192,17 @@ def create_layout(market_data, trading_book):
     trading_table.add_row("Total Value", "-", f"${total_value:.2f}")
 
     # Create layout with rows
-    layout = Group(
-        top_row,
-        middle_row,
-        bottom_row
+    layout = Layout()
+    layout.split_column(
+        Layout(name="top"),
+        Layout(name="middle"),
+        Layout(name="bottom")
     )
+
+    # Add rows to layout
+    layout["top"].update(top_row)
+    layout["middle"].update(middle_row)
+    layout["bottom"].update(bottom_row)
     return layout
 
 def update_display(market_data, trading_book):
@@ -224,12 +245,9 @@ def main(market_data_source='twelvedata', verbosity=1):
     exchange = Exchange({})
     trading_book.exchange = exchange
 
-    # Create initial layout
+    # Create initial layout and renderable
     market_data = get_market_data(market_data_source, verbosity)
-    layout = create_layout(market_data, trading_book)
-
-    # Create renderable from layout
-    renderable = layout
+    renderable = create_layout(market_data, trading_book)
 
     # Initialize API client if needed
     if market_data_source == 'twelvedata':
@@ -286,7 +304,7 @@ if __name__ == "__main__":
     # Set verbosity level (0-2)
     verbosity = args.verbose + 1
 
-    main(args.market_data_source, verbosity)
+    # Print header
     console.print("\n[bold magenta]Market Data Terminal[/bold magenta]")
     if verbosity >= 1:
         console.print(f"[cyan]Verbosity level: {verbosity}[/cyan]")

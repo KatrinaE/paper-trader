@@ -4,9 +4,22 @@ from unittest.mock import patch, MagicMock
 from exchange import Exchange
 from products import PRODUCTS, Product
 from trading import Order, Fill
-from exchange import Exchange
 from trading_book import TradingBook
 from user_actions import BUY, SELL, _add_product, _remove_product, _trade_product
+
+# Mock product for testing
+MOCK_PRODUCT = Product(
+    symbol="TEST",
+    name="Test Product",
+    category="Test",
+    initial_price=100.0
+)
+
+# Mock market data with bid/ask spread
+MOCK_MARKET_DATA = {
+    "TEST_bid": 100.0,
+    "TEST_ask": 101.0
+}
 # Removed market_data_config import since it's not needed anymore
 
 class TestAddProduct(unittest.TestCase):
@@ -42,6 +55,41 @@ class TestRemoveProduct(unittest.TestCase):
         self.assertEqual(PRODUCTS, products_fixture)
 
 class TestTradeProduct(unittest.TestCase):
+    def test_buy_limit_order(self):
+        """Test placing a limit order below market price"""
+        exchange = Exchange(MOCK_MARKET_DATA)
+        trading_book = TradingBook()
+
+        quantity = 1
+        side = Order.OrderSide.BUY
+        order_type = "limit"
+        limit_price = 95.0  # Below market ask price of 101.0
+
+        # Place limit order
+        trading_book, order_id = _trade_product(
+            market_data_source="none",
+            exchange=exchange,
+            trading_book=trading_book,
+            product=MOCK_PRODUCT,
+            quantity=quantity,
+            side=side,
+            verbosity=1,
+            order_type=order_type,
+            limit_price=limit_price
+        )
+
+        # Verify order is in active orders
+        active_orders = exchange.get_active_orders()
+        assert order_id in active_orders
+
+        # Verify order details
+        order = active_orders[order_id]
+        assert order.is_limit()
+        assert order.limit_price == limit_price
+        assert order.remaining_quantity() == quantity
+
+        # Verify no immediate fill since limit price is below market price
+        assert exchange.match_orders() == []
     def test_buy_forex(self):
         market_data_source = 'none'
         trading_book = TradingBook()
