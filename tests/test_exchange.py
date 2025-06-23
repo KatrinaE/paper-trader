@@ -9,7 +9,7 @@ from trading_book import TradingBook
 
 logger = logging.getLogger(__name__)
 
-class TestOrderBook(unittest.TestCase):
+class TestExchange(unittest.TestCase):
     def setUp(self):
         self.market_data = {
             "AAPL_bid": 150.0,
