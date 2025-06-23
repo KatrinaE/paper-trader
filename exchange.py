@@ -15,6 +15,12 @@ class Exchange:
         self.sell_orders: Dict[str, List[Order]] = {}  # product -> sorted list of sell orders
         self.next_order_id = 1
 
+    def get_next_order_id(self) -> int:
+        """Get the next available order ID"""
+        current_id = self.next_order_id
+        self.next_order_id += 1
+        return current_id
+
     def place_order(self, product: str, quantity: int, side: Order.OrderSide,
                    order_type: Order.OrderType = Order.OrderType.MARKET,
                    limit_price: Optional[float] = None) -> int:
@@ -120,7 +126,10 @@ class Exchange:
 
     def get_active_orders(self) -> Dict[int, Order]:
         """Get all active orders in the exchange's order book"""
-        return {oid: order for oid, order in self.orders.items() if order.is_active}
+        logger.info("Getting active orders")
+        active_orders = {oid: order for oid, order in self.orders.items() if order.is_active}
+        logger.info(f"Active orders: {active_orders}")
+        return active_orders
 
     def match_orders(self) -> List[Tuple[Order, Fill]]:
         """Match orders against current market data"""
@@ -139,7 +148,9 @@ class Exchange:
                         if not order.is_active or order.is_filled():
                             continue
 
-                        if (order.is_market() or order.limit_price >= ask_price) and order.remaining_quantity() > 0:
+                        # Market orders always execute at ask price
+                        # Limit orders only execute if ask price <= limit price
+                        if (order.is_market() or (order.limit_price is not None and ask_price <= order.limit_price)) and order.remaining_quantity() > 0:
                             fill_quantity = min(order.remaining_quantity(), MAX_FILL_QUANTITY)
                             fill = Fill(symbol, fill_quantity, order.side, ask_price)
                             matches.append((order, fill))
@@ -154,7 +165,9 @@ class Exchange:
                         if not order.is_active or order.is_filled():
                             continue
 
-                        if (order.is_market() or order.limit_price <= bid_price) and order.remaining_quantity() > 0:
+                        # Market orders always execute at bid price
+                        # Limit orders only execute if limit price <= bid price
+                        if (order.is_market() or (order.limit_price is not None and order.limit_price <= bid_price)) and order.remaining_quantity() > 0:
                             fill_quantity = min(order.remaining_quantity(), MAX_FILL_QUANTITY)
                             fill = Fill(symbol, fill_quantity, order.side, bid_price)
                             matches.append((order, fill))
