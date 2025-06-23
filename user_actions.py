@@ -2,6 +2,7 @@ import logging
 from rich.prompt import Prompt
 
 from products import PRODUCTS, Product
+from trading import Order
 
 # Configure user actions logger
 logger = logging.getLogger('user_actions')
@@ -40,8 +41,6 @@ def remove_product(console):
     """Remove an existing product."""
     logger.info("Starting remove_product")
     console.print("\n[bold]Remove Product[/bold]")
-    """Remove an existing product."""
-    console.print("\n[bold]Remove Product[/bold]")
     console.print("Available products:")
     for config in PRODUCTS:
         console.print(f"{config['symbol']} - {config['name']} (Category: {config['category']})")
@@ -74,10 +73,53 @@ def _remove_product(choice):
 def buy_product(trading_book, exchange, market_data_source, console, verbosity):
     """Buy a product (product) and update trading book."""
     logger.info("Starting buy_product")
-    product = Prompt.ask("Enter product symbol to buy")
-    quantity = int(Prompt.ask("Enter quantity to buy"))
+    console.print("\n[bold]Buy Product[/bold]")
+    console.print("Available products:")
+    for config in PRODUCTS:
+        console.print(f"{config.symbol} - {config.name} (Category: {config.category})")
+
+    # Keep asking until we get a valid symbol or user cancels
+    while True:
+        choice = console.input("Enter product symbol to buy (or 'q' to quit): ").upper()
+        if choice.lower() == 'q':
+            return
+        try:
+            product = next(p for p in PRODUCTS if p.symbol == choice)
+            break
+        except StopIteration:
+            console.print("[yellow]Product not found. Please try again.[/yellow]")
+
+    # Get quantity
+    while True:
+        try:
+            quantity = int(console.input("Enter quantity to buy: "))
+            if quantity > 0:
+                break
+            console.print("[yellow]Please enter a positive quantity.[/yellow]")
+        except ValueError:
+            console.print("[yellow]Please enter a valid number.[/yellow]")
+
+    # Get order type
+    while True:
+        order_type = console.input("Enter order type (market/limit): ").lower()
+        if order_type in ['market', 'limit']:
+            break
+        console.print("[yellow]Please enter either 'market' or 'limit'.[/yellow]")
+
+    limit_price = None
+    if order_type == 'limit':
+        while True:
+            try:
+                limit_price = float(console.input("Enter limit price: "))
+                if limit_price > 0:
+                    break
+                console.print("[yellow]Please enter a positive price.[/yellow]")
+            except ValueError:
+                console.print("[yellow]Please enter a valid number.[/yellow]")
+
     try:
-        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, BUY, verbosity, config=market_data_config)
+        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, Order.OrderSide.BUY, verbosity, limit_price=limit_price, order_type=order_type)
+        logger.info(f"Bought {quantity} of {product.symbol} at {order_type} order")
         console.print(f"[green]Bought {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
         return trading_book
     except Exception as e:
@@ -86,31 +128,85 @@ def buy_product(trading_book, exchange, market_data_source, console, verbosity):
 def sell_product(trading_book, exchange, market_data_source, console, verbosity):
     """Sell a product (product) and update trading book."""
     logger.info("Starting sell_product")
-    """Sell a product (product) and update trading book."""
-    product = Prompt.ask("Enter product symbol to sell")
-    quantity = int(Prompt.ask("Enter quantity to sell"))
+    console.print("\n[bold]Sell Product[/bold]")
+    console.print("Available products:")
+    for config in PRODUCTS:
+        console.print(f"{config.symbol} - {config.name} (Category: {config.category})")
+
+    # Keep asking until we get a valid symbol or user cancels
+    while True:
+        choice = console.input("Enter product symbol to sell (or 'q' to quit): ").upper()
+        if choice.lower() == 'q':
+            return
+        try:
+            product = next(p for p in PRODUCTS if p.symbol == choice)
+            break
+        except StopIteration:
+            console.print("[yellow]Product not found. Please try again.[/yellow]")
+
+    # Get quantity
+    while True:
+        try:
+            quantity = int(console.input("Enter quantity to sell: "))
+            if quantity > 0:
+                break
+            console.print("[yellow]Please enter a positive quantity.[/yellow]")
+        except ValueError:
+            console.print("[yellow]Please enter a valid number.[/yellow]")
+
+    # Get order type
+    while True:
+        order_type = console.input("Enter order type (market/limit): ").lower()
+        if order_type in ['market', 'limit']:
+            break
+        console.print("[yellow]Please enter either 'market' or 'limit'.[/yellow]")
+
+    limit_price = None
+    if order_type == 'limit':
+        while True:
+            try:
+                limit_price = float(console.input("Enter limit price: "))
+                if limit_price > 0:
+                    break
+                console.print("[yellow]Please enter a positive price.[/yellow]")
+            except ValueError:
+                console.print("[yellow]Please enter a valid number.[/yellow]")
+
     try:
-        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, SELL, verbosity, config=market_data_config)
+        trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, Order.OrderSide.SELL, verbosity, limit_price=limit_price, order_type=order_type)
+        logger.info(f"Sold {quantity} of {product.symbol} at {order_type} order")
         console.print(f"[green]Sold {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
         return trading_book
     except Exception as e:
         console.print(f"[red]Error selling: {str(e)}[/red]")
 
-def _trade_product(market_data_source, exchange, trading_book, product, quantity, side, verbosity, config=None):
-     # Get current market data
-    market_data = get_market_data(market_data_source, verbosity)
-    exchange.update_market_data(market_data)
+def _trade_product(market_data_source, exchange, trading_book, product, quantity, side: Order.OrderSide, verbosity, limit_price=None, order_type='market'):
+    """Trade a product and update trading book."""
+    logger.info(f"Starting _trade_product for {product} {side} {quantity} at {order_type} order")
 
-    # Create and execute order
-    order = Order(product, quantity, side)
-    fill = exchange.execute_order(order)
+    # Get current market data
+    market_data = get_market_data(market_data_source)
 
-    # Update trading book
-    if side == BUY:
-        trading_book.cash -= fill.quantity * fill.price
-        trading_book.add_to_position(fill.product, fill.quantity)
-    elif side == SELL:
-        trading_book.cash += fill.quantity * fill.price
-        trading_book.remove_from_position(fill.product, fill.quantity)
-    trading_book.history.append(fill)
-    return trading_book, fill
+    # Create order
+    order = Order(
+        order_id=exchange.get_next_order_id(),
+        product=product.symbol,
+        quantity=quantity,
+        side=side,
+        order_type=Order.OrderType.LIMIT if order_type == 'limit' else Order.OrderType.MARKET,
+        limit_price=limit_price
+    )
+
+    # Place order on exchange
+    order_id = exchange.place_order(
+        product=product.symbol,
+        quantity=quantity,
+        side=side,
+        order_type=Order.OrderType.LIMIT if order_type == 'limit' else Order.OrderType.MARKET,
+        limit_price=limit_price
+    )
+
+    logger.info(f"Placed order: {order} with order ID {order_id}")
+
+    # Return trading book and order ID
+    return trading_book, order_id

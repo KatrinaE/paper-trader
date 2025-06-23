@@ -4,7 +4,7 @@ import argparse
 import time
 import traceback
 from threading import Thread
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 # Initialize logging
 from logging_config import logger
@@ -33,6 +33,23 @@ from exchange import Exchange
 from trading import Order, Fill
 from trading_book import TradingBook
 from user_actions import add_product, remove_product, buy_product, sell_product
+
+def format_active_orders(orders: Dict[int, Order]) -> List[Dict[str, str]]:
+    """Format active orders for display"""
+    formatted_orders = []
+    for order in orders.values():
+        order_type = "LIMIT" if order.is_limit() else "MARKET"
+        limit_price = f"@ ${order.limit_price:.2f}" if order.is_limit() else ""
+        side = "BUY" if order.is_buy() else "SELL"
+        formatted_orders.append({
+            "Order ID": str(order.order_id),
+            "Product": order.product,
+            "Side": side,
+            "Type": order_type,
+            "Quantity": str(order.remaining_quantity()),
+            "Limit Price": limit_price
+        })
+    return formatted_orders
 
 
 class RateLimiter:
@@ -107,6 +124,50 @@ def create_layout(market_data, trading_book):
     trading_table.add_column("Quantity", style="yellow")
     trading_table.add_column("Value", style="green")
 
+    # Create controls panel
+    controls_table = Table(show_header=False)
+    controls_table.add_column("Menu", style="cyan", no_wrap=True)
+    controls_table.add_row("- a - Add product")
+    controls_table.add_row("- r - Remove product")
+    controls_table.add_row("- b - Buy product")
+    controls_table.add_row("- s - Sell product")
+    controls_table.add_row("- q - Quit")
+    controls_panel = Panel(controls_table, title="Controls", border_style="green")
+
+    # Create orders table
+    orders_table = Table(show_header=True, header_style="bold")
+    orders_table.add_column("Order ID", style="cyan")
+    orders_table.add_column("Product", style="cyan")
+    orders_table.add_column("Side", style="yellow")
+    orders_table.add_column("Type", style="green")
+    orders_table.add_column("Quantity", style="yellow")
+    orders_table.add_column("Limit Price", style="green")
+
+    # Add active orders to orders table
+    active_orders = trading_book.get_active_orders()
+    formatted_orders = format_active_orders(active_orders)
+    for order in formatted_orders:
+        orders_table.add_row(
+            order["Order ID"],
+            order["Product"],
+            order["Side"],
+            order["Type"],
+            order["Quantity"],
+            order["Limit Price"]
+        )
+
+    # Create panels for each table
+    forex_panel = Panel(forex_table, title="Forex", border_style="green")
+    commodities_panel = Panel(commodities_table, title="Commodities", border_style="green")
+    stocks_panel = Panel(stocks_table, title="Stocks", border_style="green")
+    trading_panel = Panel(trading_table, title="Trading Book", border_style="green")
+    orders_panel = Panel(orders_table, title="Active Orders", border_style="green")
+
+    # Create columns for each row
+    top_row = Columns([forex_panel, commodities_panel], equal=True)
+    middle_row = Columns([stocks_panel, trading_panel], equal=True)
+    bottom_row = Columns([orders_panel, controls_panel], equal=True)
+
     # Add positions to trading table
     # Use the same market_data that was passed to the function
     total_value = trading_book.get_total_value(market_data)
@@ -130,68 +191,19 @@ def create_layout(market_data, trading_book):
     trading_table.add_row("Cash", "-", f"${trading_book.cash:.2f}")
     trading_table.add_row("Total Value", "-", f"${total_value:.2f}")
 
-    # Create controls panel
-    controls_table = Table(show_header=False)
-    controls_table.add_column("Menu", style="cyan", no_wrap=True)
-    controls_table.add_row("- a - Add product")
-    controls_table.add_row("- r - Remove product")
-    controls_table.add_row("- b - Buy product")
-    controls_table.add_row("- s - Sell product")
-    controls_table.add_row("- q - Quit")
-    controls_panel = Panel(controls_table, title="Controls", border_style="green")
+    # Create layout with rows
+    layout = Layout()
+    layout.split_column(
+        Layout(name="top"),
+        Layout(name="middle"),
+        Layout(name="bottom")
+    )
 
-    # Create panels for each table
-    forex_panel = Panel(forex_table, title="Forex", border_style="green")
-    commodities_panel = Panel(commodities_table, title="Commodities", border_style="green")
-    stocks_panel = Panel(stocks_table, title="Stocks", border_style="green")
-    trading_panel = Panel(trading_table, title="Trading Book", border_style="green")
-
-    # Create columns for each row
-    top_row = Columns([forex_panel, commodities_panel], equal=True)
-    bottom_row = Columns([stocks_panel, trading_panel], equal=True)
-
-    # Create the final layout with three rows
-    return Group(top_row, bottom_row, controls_panel)
-
-    # Add data to market tables
-    for config in PRODUCTS:
-        if config['category'] == 'forex':
-            bid = market_data.get(f"{config['symbol']}_bid", 'N/A')
-            ask = market_data.get(f"{config['symbol']}_ask", 'N/A')
-            forex_table.add_row(
-                config['symbol'],
-                f"{float(bid):8.2f}" if bid != 'N/A' else 'N/A',
-                f"{float(ask):8.2f}" if ask != 'N/A' else 'N/A'
-            )
-        elif config['category'] == 'commodities':
-            bid = market_data.get(f"{config['symbol']}_bid", 'N/A')
-            ask = market_data.get(f"{config['symbol']}_ask", 'N/A')
-            commodities_table.add_row(
-                config['symbol'],
-                f"{float(bid):8.2f}" if bid != 'N/A' else 'N/A',
-                f"{float(ask):8.2f}" if ask != 'N/A' else 'N/A'
-            )
-        elif config['category'] == 'stocks':
-            bid = market_data.get(f"{config['symbol']}_bid", 'N/A')
-            ask = market_data.get(f"{config['symbol']}_ask", 'N/A')
-            stocks_table.add_row(
-                config['symbol'],
-                f"{float(bid):8.2f}" if bid != 'N/A' else 'N/A',
-                f"{float(ask):8.2f}" if ask != 'N/A' else 'N/A'
-            )
-
-    # Create panels for each table
-    forex_panel = Panel(forex_table, title="Forex", border_style="green")
-    commodities_panel = Panel(commodities_table, title="Commodities", border_style="green")
-    stocks_panel = Panel(stocks_table, title="Stocks", border_style="green")
-    trading_panel = Panel(trading_table, title="Trading Book", border_style="green")
-
-    # Create columns for each row
-    top_row = Columns([forex_panel, commodities_panel], equal=True)
-    bottom_row = Columns([stocks_panel, trading_panel], equal=True)
-
-    # Create the final layout with three rows
-    return Group(top_row, bottom_row, controls_panel)
+    # Add rows to layout
+    layout["top"].update(top_row)
+    layout["middle"].update(middle_row)
+    layout["bottom"].update(bottom_row)
+    return layout
 
 def update_display(market_data, trading_book):
     """Update the display with current market data and trading book"""
@@ -216,6 +228,8 @@ def update_market_data_continuously(live, trading_book, exchange, market_data_so
             market_data = get_market_data(market_data_source, verbosity)
             if market_data:
                 exchange.update_market_data(market_data)
+                # Process fills to update cash and positions
+                trading_book.process_fills()
 
                 # Update the display
                 renderable = create_layout(market_data, trading_book)
@@ -229,13 +243,11 @@ def main(market_data_source='twelvedata', verbosity=1):
     # Initialize trading book and exchange
     trading_book = TradingBook()
     exchange = Exchange({})
+    trading_book.exchange = exchange
 
-    # Create initial layout
+    # Create initial layout and renderable
     market_data = get_market_data(market_data_source, verbosity)
-    layout = create_layout(market_data, trading_book)
-
-    # Create renderable from layout
-    renderable = layout
+    renderable = create_layout(market_data, trading_book)
 
     # Initialize API client if needed
     if market_data_source == 'twelvedata':
@@ -292,7 +304,7 @@ if __name__ == "__main__":
     # Set verbosity level (0-2)
     verbosity = args.verbose + 1
 
-    main(args.market_data_source, verbosity)
+    # Print header
     console.print("\n[bold magenta]Market Data Terminal[/bold magenta]")
     if verbosity >= 1:
         console.print(f"[cyan]Verbosity level: {verbosity}[/cyan]")
