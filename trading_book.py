@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, List, Optional, Tuple
 
-from trading import Fill, Order
+from order import Fill, Order
 
 # Configure trading book logger
 logger = logging.getLogger('trading_book')

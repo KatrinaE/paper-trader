@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, List, Tuple, Optional
-from trading import Order, Fill
+from order import Order, Fill
 
 # Configure exchange logger
 logger = logging.getLogger('exchange')

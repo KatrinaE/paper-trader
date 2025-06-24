@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 
 from trading_book import TradingBook
-from trading import Fill
+from order import Fill
 from market_data import get_market_data
 from products import PRODUCTS
 
