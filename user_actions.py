@@ -2,13 +2,12 @@ import logging
 from rich.prompt import Prompt
 
 from products import PRODUCTS, Product
-from trading import Order
+from order import Order, Fill
 
 # Configure user actions logger
 logger = logging.getLogger('user_actions')
 from market_data import get_market_data, market_data_config
 from exchange import Exchange
-from trading import Order, Fill
 from trading_book import TradingBook
 BUY = 'buy'
 SELL = 'sell'

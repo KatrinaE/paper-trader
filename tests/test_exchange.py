@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 from datetime import datetime
 
-from trading import Order
+from order import Order
 from exchange import Exchange
 from trading_book import TradingBook
 
