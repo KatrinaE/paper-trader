@@ -217,7 +217,7 @@ def get_market_data_twelvedata(verbosity=1):
         return {}
 
 
-def get_market_data(market_data_source='twelvedata', verbosity=1):
+def get_market_data(market_data_source, verbosity=1):
     """Fetch market data from Twelve Data API or return random prices when in simulation mode"""
     global current_volatile_period
     logger.info(f"Fetching market data (source={market_data_source}, verbosity={verbosity})")

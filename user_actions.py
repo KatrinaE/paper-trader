@@ -184,7 +184,7 @@ def _trade_product(market_data_source, exchange, trading_book, product, quantity
     logger.info(f"Starting _trade_product for {product} {side} {quantity} at {order_type} order")
 
     # Get current market data
-    market_data = get_market_data(market_data_source)
+    market_data = get_market_data(market_data_source, verbosity)
 
     # Create order
     order = Order(
