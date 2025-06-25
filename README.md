@@ -17,28 +17,26 @@ A terminal-based paper trading application that simulates real trading with live
 - Terminal with color support for best experience
 
 ### Installation
-1. **Get a free API key from Twelve Data** (optional for live data):
-   - Visit https://twelvedata.com/
-   - Sign up for an account
-   - Create an API key in your dashboard
-
-2. **Install dependencies**:
+1. **Install dependencies**:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **Configure environment** (optional):
-```bash
-# Create .env file with your API key for live data
-echo "TWELVEDATA_API_KEY=your_api_key_here" > .env
-```
-
-4. **Run the application**:
+2. **Run the application**:
 ```bash
 python main.py                    # Run with live data (requires API key)
 python main.py -m simulation      # Run with simulated data (no API key needed)
 python main.py -v                 # Run with verbose logging
 ```
+
+3. **Get a free API key from Twelve Data** (optional - only required for live market data):
+   - Visit https://twelvedata.com/
+   - Sign up for an account
+   - Create an API key in your dashboard
+   - Store the API key in a .env file
+     ```
+     echo "TWELVEDATA_API_KEY=your_api_key_here" > .env
+     ```
 
 ## How to Use
 
@@ -147,4 +145,3 @@ python3 -m pytest tests/test_exchange.py::TestExchange::test_place_order  # Run 
 - Daily log rotation with timestamps
 - Use `-v` flag for verbose console output
 
-This architecture provides clean separation of concerns with realistic trading simulation, making it ideal for learning financial markets and trading concepts.
