@@ -297,7 +297,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Paper Trader Market Data Terminal')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase verbosity level (-v for basic, -vv for detailed)')
-    parser.add_argument('-m', '--market-data-source', default='twelvedata',
+    parser.add_argument('-m', '--market-data-source', default='simulation',
                         help='Market data source (twelvedata or simulation)')
     args = parser.parse_args()
 

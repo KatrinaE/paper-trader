@@ -3,8 +3,10 @@ from datetime import datetime, timedelta
 import logging
 import random
 import time
+import os
 from enum import Enum
 
+from twelvedata import TDClient
 from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
 from products import PRODUCTS, Product
 from rate_limiter import RateLimiter
@@ -153,14 +155,17 @@ previous_prices = {
 for product, price in previous_prices.items():
     logger.info(f"Initialized previous price for {product}: {price}")
 
-def get_market_data_twelvedata():
+def get_market_data_twelvedata(verbosity=1):
+    """Fetch market data from Twelve Data API"""
     rate_limiter.wait_if_needed()
     try:
-        if config is None:
-            config = market_data_config
-            logger.debug("Using default market data configuration")
-        else:
-            logger.debug("Using custom market data configuration")
+        # Initialize API client
+        API_KEY = os.getenv("TWELVEDATA_API_KEY")
+        if not API_KEY:
+            logger.error("TWELVEDATA_API_KEY not found in environment variables")
+            return {}
+
+        client = TDClient(apikey=API_KEY)
 
         usage_endpoint = APIUsageEndpoint(client)
         usage_data = usage_endpoint.get().as_json()
@@ -303,4 +308,6 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
 
         return data
 
-    get_market_data_from_twelvedata()
+    else:
+        # Use Twelve Data API
+        return get_market_data_twelvedata(verbosity)
