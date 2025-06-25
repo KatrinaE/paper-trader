@@ -16,30 +16,30 @@ class TestMarketData(unittest.TestCase):
         global market_data_config
         market_data_config = self.original_config
 
-    def test_get_market_data_none_mode_no_api_calls(self):
+    def test_get_market_data_simulation_mode_no_api_calls(self):
         """
-        Test that get_market_data with 'none' mode doesn't call API endpoints
+        Test that get_market_data with 'simulation' mode doesn't call API endpoints
         """
         with patch('twelvedata.endpoints.TimeSeriesEndpoint') as mock_ts_endpoint:
-            get_market_data(market_data_source='none', verbosity=1)
+            get_market_data(market_data_source='simulation', verbosity=1)
             mock_ts_endpoint.assert_not_called()
 
-    def test_get_market_data_none_mode_behavior(self):
+    def test_get_market_data_simulation_mode_behavior(self):
         """
-        Test that get_market_data with 'none' mode returns valid market data
+        Test that get_market_data with 'simulation' mode returns valid market data
         """
         # Run multiple iterations to verify price stability
         num_iterations = 10
         results = []
 
         # Get initial prices
-        result = get_market_data(market_data_source='none', verbosity=1)
+        result = get_market_data(market_data_source='simulation', verbosity=1)
         self.assertEqual(len(result), len(PRODUCTS) * 2)  # Each instrument has bid and ask
         results.append(result)
 
         # Get updated prices for multiple iterations
         for i in range(1, num_iterations):
-            result = get_market_data(market_data_source='none', verbosity=1)
+            result = get_market_data(market_data_source='simulation', verbosity=1)
             self.assertEqual(len(result), len(PRODUCTS) * 2)  # Each instrument has bid and ask
             results.append(result)
 
@@ -82,7 +82,7 @@ class TestMarketData(unittest.TestCase):
         num_iterations = 1000
 
         # Get initial prices
-        market_data = get_market_data(market_data_source='none')
+        market_data = get_market_data(market_data_source='simulation')
 
         # Verify no negative prices and prices within bounds
         for symbol in market_data:
@@ -111,7 +111,7 @@ class TestMarketData(unittest.TestCase):
             max_event_magnitude=0.1)  # 10% max event size
         try:
             # Get initial prices
-            market_data = get_market_data(market_data_source='none')
+            market_data = get_market_data(market_data_source='simulation')
 
             # Get initial bid price for EUR/USD
             symbol = "EUR/USD"
@@ -119,7 +119,7 @@ class TestMarketData(unittest.TestCase):
 
             # Call get_market_data multiple times to ensure we see an event
             for _ in range(100):  # Try 100 iterations
-                market_data = get_market_data(market_data_source='none')
+                market_data = get_market_data(market_data_source='simulation')
                 new_bid = market_data[f"{symbol}_bid"]
                 if new_bid != initial_bid:
                     break
