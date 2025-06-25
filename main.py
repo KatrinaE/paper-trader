@@ -298,7 +298,7 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase verbosity level (-v for basic, -vv for detailed)')
     parser.add_argument('-m', '--market-data-source', default='twelvedata',
-                        help='Market data source (twelvedata or none)')
+                        help='Market data source (twelvedata or simulation)')
     args = parser.parse_args()
 
     # Set verbosity level (0-2)

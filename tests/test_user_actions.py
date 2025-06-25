@@ -67,7 +67,7 @@ class TestTradeProduct(unittest.TestCase):
 
         # Place limit order
         trading_book, order_id = _trade_product(
-            market_data_source="none",
+            market_data_source="simulation",
             exchange=exchange,
             trading_book=trading_book,
             product=MOCK_PRODUCT,
@@ -91,7 +91,7 @@ class TestTradeProduct(unittest.TestCase):
         # Verify no immediate fill since limit price is below market price
         assert exchange.match_orders() == []
     def test_buy_forex(self):
-        market_data_source = 'none'
+        market_data_source = 'simulation'
         trading_book = TradingBook()
         market_data = {
             "AAPL_ask": 150.0,
@@ -137,7 +137,7 @@ class TestTradeProduct(unittest.TestCase):
         self.assertNotEqual(fill.price, None)
 
     def test_sell_forex(self):
-        market_data_source = 'none'
+        market_data_source = 'simulation'
         # Get a Product instance instead of using string symbol
         product = next(p for p in PRODUCTS if p.symbol == 'AAPL')
         quantity_fixture = 5

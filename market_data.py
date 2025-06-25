@@ -213,11 +213,11 @@ def get_market_data_twelvedata():
 
 
 def get_market_data(market_data_source='twelvedata', verbosity=1):
-    """Fetch market data from Twelve Data API or return random prices when in none mode"""
+    """Fetch market data from Twelve Data API or return random prices when in simulation mode"""
     global current_volatile_period
     logger.info(f"Fetching market data (source={market_data_source}, verbosity={verbosity})")
 
-    if market_data_source == 'none':
+    if market_data_source == 'simulation':
         # Generate probabilistic prices for all products
         data = {}
 
