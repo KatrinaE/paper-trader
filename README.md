@@ -122,7 +122,7 @@ Use these commands in the application:
 - **`.env`** - Environment variables (API keys)
 
 ### Testing
-- **`tests/`** - Comprehensive test suite using unittest
+- **`tests/`** - Comprehensive test suite using pytest
   - `test_exchange.py` - Order matching and exchange logic
   - `test_trading_book.py` - Portfolio management
   - `test_market_data.py` - Data handling and simulation
@@ -137,8 +137,9 @@ Use these commands in the application:
 
 ### Running Tests
 ```bash
-python -m unittest discover tests/        # Run all tests
-python -m unittest tests.test_exchange    # Run specific module
+python3 -m pytest                                                         # Run all tests
+python3 -m pytest tests/test_exchange.py                                  # Run specific test file
+python3 -m pytest tests/test_exchange.py::TestExchange::test_place_order  # Run specific test
 ```
 
 ### Logging
