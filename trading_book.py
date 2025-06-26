@@ -90,9 +90,8 @@ class TradingBook:
         """
         return self.exchange.cancel_order(order_id)
 
-    def process_fills(self) -> List[Tuple[Order, Fill]]:
-        """Process fills from the exchange"""
-        matches = self.exchange.match_orders()
+    def process_fills(self, matches: List[Tuple[Order, Fill]]) -> List[Tuple[Order, Fill]]:
+        """Process fills from provided matches"""
         for order, fill in matches:
             if order.is_buy():
                 self.cash -= fill.quantity * fill.price

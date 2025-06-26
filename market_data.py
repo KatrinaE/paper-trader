@@ -222,7 +222,7 @@ def get_market_data_twelvedata(verbosity=1):
         return {}
 
 
-def get_market_data(market_data_source: MarketDataSource, verbosity: int = 1) -> Dict[str, float]:
+def get_market_data(market_data_source: MarketDataSource, verbosity: int = 1, exchange=None) -> Tuple[Dict[str, float], List]:
     """Fetch market data from Twelve Data API or return random prices when in simulation mode"""
     global current_volatile_period
     logger.info(f"Fetching market data (source={market_data_source}, verbosity={verbosity})")
@@ -311,8 +311,8 @@ def get_market_data(market_data_source: MarketDataSource, verbosity: int = 1) ->
             logger.info(f"Generated prices for {symbol}: base={base_price}, bid={bid}, ask={ask}")
             previous_prices[symbol] = base_price  # Store base price (midpoint) for next iteration
 
-        return data
+        return data, []
 
     else:
         # Use Twelve Data API
-        return get_market_data_twelvedata(verbosity)
+        return get_market_data_twelvedata(verbosity), []

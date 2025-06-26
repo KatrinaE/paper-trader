@@ -225,11 +225,11 @@ def update_market_data_continuously(live, trading_book, exchange, market_data_so
     while True:
         try:
             # Get new market data
-            market_data = get_market_data(market_data_source, verbosity)
+            market_data, matches = get_market_data(market_data_source, verbosity, exchange if market_data_source == MarketDataSource.CLOB else None)
             if market_data:
                 exchange.update_market_data(market_data)
                 # Process fills to update cash and positions
-                trading_book.process_fills()
+                trading_book.process_fills(matches)
 
                 # Update the display
                 renderable = create_layout(market_data, trading_book)
@@ -246,7 +246,8 @@ def main(market_data_source: MarketDataSource, verbosity: int = 1):
     trading_book.exchange = exchange
 
     # Create initial layout and renderable
-    market_data = get_market_data(market_data_source, verbosity)
+    market_data, initial_matches = get_market_data(market_data_source, verbosity, exchange if market_data_source == MarketDataSource.CLOB else None)
+    trading_book.process_fills(initial_matches)
     renderable = create_layout(market_data, trading_book)
 
     # Initialize API client if needed
