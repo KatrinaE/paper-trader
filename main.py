@@ -228,6 +228,11 @@ def update_market_data_continuously(live, trading_book, exchange, market_data_so
             market_data, matches = get_market_data(market_data_source, verbosity, exchange if market_data_source == MarketDataSource.CLOB else None)
             if market_data:
                 exchange.update_market_data(market_data)
+                
+                # For simulation mode, we need to match orders after updating market data
+                if market_data_source == MarketDataSource.SIMULATION:
+                    matches = exchange.match_orders()
+                
                 # Process fills to update cash and positions
                 trading_book.process_fills(matches)
 
