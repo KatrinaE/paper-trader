@@ -143,6 +143,14 @@ def create_layout(market_data, trading_book):
     orders_table.add_column("Quantity", style="yellow")
     orders_table.add_column("Limit Price", style="green")
 
+    # Create fills table
+    fills_table = Table(show_header=True, header_style="bold")
+    fills_table.add_column("Order ID", style="cyan")
+    fills_table.add_column("Product", style="cyan")
+    fills_table.add_column("Quantity", style="yellow")
+    fills_table.add_column("Price", style="green")
+    fills_table.add_column("Timestamp", style="magenta")
+
     # Add active orders to orders table (only show user orders, not simulated ones)
     active_orders = trading_book.get_user_active_orders()
     formatted_orders = format_active_orders(active_orders)
@@ -156,17 +164,31 @@ def create_layout(market_data, trading_book):
             order["Limit Price"]
         )
 
+    # Add fills to fills table (show most recent fills first)
+    recent_fills = trading_book.history[-10:] if len(trading_book.history) > 10 else trading_book.history
+    recent_fills.reverse()  # Show most recent first
+    for fill in recent_fills:
+        fills_table.add_row(
+            str(fill.order_id),
+            fill.product,
+            str(fill.quantity),
+            f"${fill.price:.2f}",
+            fill.timestamp.strftime("%H:%M:%S")
+        )
+
     # Create panels for each table
     forex_panel = Panel(forex_table, title="Forex", border_style="green")
     commodities_panel = Panel(commodities_table, title="Commodities", border_style="green")
     stocks_panel = Panel(stocks_table, title="Stocks", border_style="green")
     trading_panel = Panel(trading_table, title="Trading Book", border_style="green")
     orders_panel = Panel(orders_table, title="Active Orders", border_style="green")
+    fills_panel = Panel(fills_table, title="Recent Fills", border_style="green")
 
     # Create columns for each row
     top_row = Columns([forex_panel, commodities_panel], equal=True)
     middle_row = Columns([stocks_panel, trading_panel], equal=True)
-    bottom_row = Columns([orders_panel, controls_panel], equal=True)
+    bottom_left_row = Columns([orders_panel, fills_panel], equal=True)
+    bottom_right_row = controls_panel
 
     # Add positions to trading table
     # Use the same market_data that was passed to the function
@@ -198,11 +220,18 @@ def create_layout(market_data, trading_book):
         Layout(name="middle"),
         Layout(name="bottom")
     )
+    
+    # Split bottom into left and right sections
+    layout["bottom"].split_row(
+        Layout(name="bottom_left", ratio=2),
+        Layout(name="bottom_right", ratio=1)
+    )
 
     # Add rows to layout
     layout["top"].update(top_row)
     layout["middle"].update(middle_row)
-    layout["bottom"].update(bottom_row)
+    layout["bottom"]["bottom_left"].update(bottom_left_row)
+    layout["bottom"]["bottom_right"].update(bottom_right_row)
     return layout
 
 def update_display(market_data, trading_book):

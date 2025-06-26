@@ -195,16 +195,6 @@ def _trade_product(market_data_source, exchange, trading_book, product, quantity
     # Process any fills that occurred
     trading_book.process_fills(matches)
 
-    # Create order
-    order = Order(
-        order_id=exchange.get_next_order_id(),
-        product=product.symbol,
-        quantity=quantity,
-        side=side,
-        order_type=Order.OrderType.LIMIT if order_type == 'limit' else Order.OrderType.MARKET,
-        limit_price=limit_price
-    )
-
     # Place order on exchange
     order_id = exchange.place_order(
         product=product.symbol,
@@ -214,17 +204,31 @@ def _trade_product(market_data_source, exchange, trading_book, product, quantity
         limit_price=limit_price
     )
 
-    logger.info(f"Placed order: {order} with order ID {order_id}")
+    logger.info(f"Placed order with order ID {order_id}")
 
-    # Create a mock fill object for now since the function expects a fill
-    # In the real implementation, this would come from the exchange matching
+    # Update market data and try to match immediately for better user experience
+    if market_data:
+        exchange.update_market_data(market_data)
+        
+        # For simulation mode, match orders immediately after placement
+        if market_data_source == MarketDataSource.SIMULATION:
+            matches = exchange.match_orders()
+            trading_book.process_fills(matches)
+            
+            # Find any fills for our order
+            for order, fill in matches:
+                if order.order_id == order_id:
+                    return trading_book, fill
+
+    # If no immediate fill, create a mock fill for UI feedback
+    # This will be replaced by real fills when they occur in the main loop
     from order import Fill
     fill = Fill(
         product=product.symbol,
-        quantity=quantity,
+        quantity=0,  # 0 quantity indicates no fill yet
         side=side,
-        price=limit_price if limit_price else 0.0  # Mock price
+        price=0.0,
+        order_id=order_id
     )
 
-    # Return trading book and fill
     return trading_book, fill
