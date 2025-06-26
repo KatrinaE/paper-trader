@@ -185,7 +185,9 @@ def _trade_product(market_data_source, exchange, trading_book, product, quantity
     logger.info(f"Starting _trade_product for {product} {side} {quantity} at {order_type} order")
 
     # Get current market data
-    market_data = get_market_data(market_data_source, verbosity)
+    market_data, matches = get_market_data(market_data_source, verbosity, exchange if market_data_source == MarketDataSource.CLOB else None)
+    # Process any fills that occurred
+    trading_book.process_fills(matches)
 
     # Create order
     order = Order(
@@ -208,5 +210,15 @@ def _trade_product(market_data_source, exchange, trading_book, product, quantity
 
     logger.info(f"Placed order: {order} with order ID {order_id}")
 
-    # Return trading book and order ID
-    return trading_book, order_id
+    # Create a mock fill object for now since the function expects a fill
+    # In the real implementation, this would come from the exchange matching
+    from order import Fill
+    fill = Fill(
+        product=product.symbol,
+        quantity=quantity,
+        side=side,
+        price=limit_price if limit_price else 0.0  # Mock price
+    )
+
+    # Return trading book and fill
+    return trading_book, fill

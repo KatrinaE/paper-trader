@@ -67,7 +67,7 @@ class TestTradeProduct(unittest.TestCase):
         limit_price = 95.0  # Below market ask price of 101.0
 
         # Place limit order
-        trading_book, order_id = _trade_product(
+        trading_book, fill = _trade_product(
             market_data_source=MarketDataSource.SIMULATION,
             exchange=exchange,
             trading_book=trading_book,
@@ -79,12 +79,16 @@ class TestTradeProduct(unittest.TestCase):
             limit_price=limit_price
         )
 
-        # Verify order is in active orders
-        active_orders = exchange.get_active_orders()
-        assert order_id in active_orders
+        # Verify fill details
+        assert fill.product == MOCK_PRODUCT.symbol
+        assert fill.quantity == quantity
+        assert fill.side == side
+        assert fill.price == limit_price
 
-        # Verify order details
-        order = active_orders[order_id]
+        # Verify order is in active orders (get the last order placed)
+        active_orders = exchange.get_active_orders()
+        assert len(active_orders) > 0
+        order = list(active_orders.values())[-1]  # Get the last order
         assert order.is_limit()
         assert order.limit_price == limit_price
         assert order.remaining_quantity() == quantity

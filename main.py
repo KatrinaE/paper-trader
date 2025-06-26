@@ -143,8 +143,8 @@ def create_layout(market_data, trading_book):
     orders_table.add_column("Quantity", style="yellow")
     orders_table.add_column("Limit Price", style="green")
 
-    # Add active orders to orders table
-    active_orders = trading_book.get_active_orders()
+    # Add active orders to orders table (only show user orders, not simulated ones)
+    active_orders = trading_book.get_user_active_orders()
     formatted_orders = format_active_orders(active_orders)
     for order in formatted_orders:
         orders_table.add_row(
@@ -225,11 +225,11 @@ def update_market_data_continuously(live, trading_book, exchange, market_data_so
     while True:
         try:
             # Get new market data
-            market_data = get_market_data(market_data_source, verbosity)
+            market_data, matches = get_market_data(market_data_source, verbosity, exchange if market_data_source == MarketDataSource.CLOB else None)
             if market_data:
                 exchange.update_market_data(market_data)
                 # Process fills to update cash and positions
-                trading_book.process_fills()
+                trading_book.process_fills(matches)
 
                 # Update the display
                 renderable = create_layout(market_data, trading_book)
@@ -246,7 +246,8 @@ def main(market_data_source: MarketDataSource, verbosity: int = 1):
     trading_book.exchange = exchange
 
     # Create initial layout and renderable
-    market_data = get_market_data(market_data_source, verbosity)
+    market_data, initial_matches = get_market_data(market_data_source, verbosity, exchange if market_data_source == MarketDataSource.CLOB else None)
+    trading_book.process_fills(initial_matches)
     renderable = create_layout(market_data, trading_book)
 
     # Initialize API client if needed
@@ -298,11 +299,16 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase verbosity level (-v for basic, -vv for detailed)')
     parser.add_argument('-m', '--market-data-source', default='simulation',
-                        help='Market data source (twelvedata or simulation)')
+                        help='Market data source (twelvedata, simulation, or clob)')
     args = parser.parse_args()
 
     # Convert market data source string to enum
-    market_data_source = MarketDataSource.TWELVEDATA if args.market_data_source == 'twelvedata' else MarketDataSource.SIMULATION
+    if args.market_data_source == 'twelvedata':
+        market_data_source = MarketDataSource.TWELVEDATA
+    elif args.market_data_source == 'clob':
+        market_data_source = MarketDataSource.CLOB
+    else:
+        market_data_source = MarketDataSource.SIMULATION
 
     # Set verbosity level (0-2)
     verbosity = args.verbose + 1

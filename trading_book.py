@@ -90,22 +90,27 @@ class TradingBook:
         """
         return self.exchange.cancel_order(order_id)
 
-    def process_fills(self) -> List[Tuple[Order, Fill]]:
-        """Process fills from the exchange"""
-        matches = self.exchange.match_orders()
+    def process_fills(self, matches: List[Tuple[Order, Fill]]) -> List[Tuple[Order, Fill]]:
+        """Process fills from provided matches"""
         for order, fill in matches:
-            if order.is_buy():
-                self.cash -= fill.quantity * fill.price
-                self.add_to_position(fill.product, fill.quantity)
-            else:  # SELL
-                self.cash += fill.quantity * fill.price
-                self.remove_from_position(fill.product, fill.quantity)
+            # Only process fills for user orders (ignore simulated order fills)
+            if order.source == Order.OrderSource.USER:
+                if order.is_buy():
+                    self.cash -= fill.quantity * fill.price
+                    self.add_to_position(fill.product, fill.quantity)
+                else:  # SELL
+                    self.cash += fill.quantity * fill.price
+                    self.remove_from_position(fill.product, fill.quantity)
 
-            self.history.append(fill)
-            logger.info(f"Filled order {order.order_id}: {fill}")
+                self.history.append(fill)
+                logger.info(f"Processed user fill for order {order.order_id}: {fill}")
 
         return matches
 
     def get_active_orders(self) -> Dict[int, Order]:
         """Get all active orders"""
         return self.exchange.get_active_orders()
+
+    def get_user_active_orders(self) -> Dict[int, Order]:
+        """Get only user active orders (exclude simulated orders)"""
+        return self.exchange.get_user_active_orders()

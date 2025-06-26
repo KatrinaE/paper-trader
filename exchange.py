@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, List, Tuple, Optional
 from order import Order, Fill
+from products import PRODUCTS
 
 # Configure exchange logger
 logger = logging.getLogger('exchange')
@@ -23,7 +24,8 @@ class Exchange:
 
     def place_order(self, product: str, quantity: int, side: Order.OrderSide,
                    order_type: Order.OrderType = Order.OrderType.MARKET,
-                   limit_price: Optional[float] = None) -> int:
+                   limit_price: Optional[float] = None,
+                   source: Order.OrderSource = Order.OrderSource.USER) -> int:
         """Place a new order in the exchange's order book
 
         Args:
@@ -48,7 +50,8 @@ class Exchange:
             quantity=quantity,
             side=side,
             order_type=order_type,
-            limit_price=limit_price
+            limit_price=limit_price,
+            source=source
         )
 
         self.orders[order_id] = order
@@ -131,6 +134,14 @@ class Exchange:
         logger.info(f"Active orders: {active_orders}")
         return active_orders
 
+    def get_user_active_orders(self) -> Dict[int, Order]:
+        """Get only user active orders (exclude simulated orders)"""
+        logger.info("Getting user active orders")
+        user_orders = {oid: order for oid, order in self.orders.items()
+                      if order.is_active and order.source == Order.OrderSource.USER}
+        logger.info(f"User active orders: {user_orders}")
+        return user_orders
+
     def match_orders(self) -> List[Tuple[Order, Fill]]:
         """Match orders against current market data"""
         matches = []
@@ -175,6 +186,71 @@ class Exchange:
                             order.filled_quantity += fill_quantity
                             if order.is_filled():
                                 order.is_active = False
+
+        return matches
+
+    def match_orders_clob(self) -> List[Tuple[Order, Fill]]:
+        """Match orders against each other in the order book (CLOB-style matching)"""
+        matches = []
+
+        for product in PRODUCTS:
+            symbol = product.symbol
+
+            # Get active buy and sell orders for this product
+            buy_orders = []
+            sell_orders = []
+
+            if symbol in self.buy_orders:
+                buy_orders = [o for o in self.buy_orders[symbol] if o.is_active and not o.is_filled()]
+                # Sort by price (highest first) then by timestamp
+                buy_orders.sort(key=lambda x: (-x.limit_price if x.limit_price else 0, x.timestamp))
+
+            if symbol in self.sell_orders:
+                sell_orders = [o for o in self.sell_orders[symbol] if o.is_active and not o.is_filled()]
+                # Sort by price (lowest first) then by timestamp
+                sell_orders.sort(key=lambda x: (x.limit_price if x.limit_price else float('inf'), x.timestamp))
+
+            # Match orders: highest bid vs lowest ask
+            while buy_orders and sell_orders:
+                best_buy = buy_orders[0]
+                best_sell = sell_orders[0]
+
+                # Check if orders can match (buy price >= sell price)
+                if best_buy.limit_price >= best_sell.limit_price:
+                    # Match at the price of the resting order (first in book)
+                    match_price = best_sell.limit_price if best_sell.timestamp <= best_buy.timestamp else best_buy.limit_price
+
+                    # Determine fill quantity (minimum of remaining quantities)
+                    fill_quantity = min(best_buy.remaining_quantity(), best_sell.remaining_quantity())
+
+                    # Create fills for both orders
+                    buy_fill = Fill(symbol, fill_quantity, best_buy.side, match_price)
+                    sell_fill = Fill(symbol, fill_quantity, best_sell.side, match_price)
+
+                    # Update order filled quantities
+                    best_buy.filled_quantity += fill_quantity
+                    best_sell.filled_quantity += fill_quantity
+
+                    # Mark orders as inactive if fully filled
+                    if best_buy.is_filled():
+                        best_buy.is_active = False
+                        buy_orders.pop(0)  # Remove from list
+                    if best_sell.is_filled():
+                        best_sell.is_active = False
+                        sell_orders.pop(0)  # Remove from list
+
+                    # Add to matches
+                    matches.append((best_buy, buy_fill))
+                    matches.append((best_sell, sell_fill))
+
+                    # Log the match with order details
+                    buy_type = "simulated" if best_buy.source == Order.OrderSource.SIMULATION else "user"
+                    sell_type = "simulated" if best_sell.source == Order.OrderSource.SIMULATION else "user"
+
+                    logger.info(f"{buy_type} order #{best_buy.order_id} BUY {best_buy.quantity} {symbol} @ ${best_buy.limit_price} matched {sell_type} order #{best_sell.order_id} SELL {best_sell.quantity} {symbol} @ ${best_sell.limit_price}. Filled {fill_quantity} at price ${match_price}")
+                else:
+                    # No more matches possible for this product
+                    break
 
         return matches
 

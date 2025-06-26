@@ -15,6 +15,7 @@ from rate_limiter import RateLimiter
 class MarketDataSource(Enum):
     SIMULATION = 'simulation'
     TWELVEDATA = 'twelvedata'
+    CLOB = 'clob'
 
 # Named tuple for volatile periods
 VolatilePeriod = NamedTuple('VolatilePeriod', [
@@ -160,6 +161,117 @@ previous_prices = {
 for product, price in previous_prices.items():
     logger.info(f"Initialized previous price for {product}: {price}")
 
+
+def generate_simulated_order(product: Product, current_price: float):
+    """Generate a simulated buy or sell order for CLOB mode"""
+    from order import Order  # Import here to avoid circular imports
+
+    # Generate order side (50/50 chance of buy vs sell)
+    side = Order.OrderSide.BUY if random.random() < 0.5 else Order.OrderSide.SELL
+
+    # Generate quantity (1-10 lots)
+    quantity = random.randint(1, 10)
+
+    # Generate price around current price using same logic as simulation mode
+    std_dev = market_data_config.model_std_dev(current_price)
+
+    # For limit orders, use a price that's slightly away from current price
+    if side == Order.OrderSide.BUY:
+        # Buy orders should be slightly below current price
+        price_offset = random.uniform(-std_dev * 2, std_dev * 0.5)
+    else:
+        # Sell orders should be slightly above current price
+        price_offset = random.uniform(-std_dev * 0.5, std_dev * 2)
+
+    limit_price = max(current_price + price_offset, 0.01)  # Ensure positive price
+    limit_price = round(limit_price, 2)
+
+    # Use dummy order_id since exchange.place_order() will assign the real one
+    order_id = -1
+
+    order = Order(
+        order_id=order_id,
+        product=product.symbol,
+        quantity=quantity,
+        side=side,
+        order_type=Order.OrderType.LIMIT,
+        limit_price=limit_price,
+        source=Order.OrderSource.SIMULATION
+    )
+
+    logger.info(f"Generated simulated order: {side.value} {quantity} {product.symbol} @ ${limit_price}")
+    return order
+
+def get_market_data_from_clob(exchange, verbosity: int = 1) -> Tuple[Dict[str, float], List]:
+    """Get market data from exchange order book and generate simulated orders"""
+    data = {}
+
+    # Generate 1-3 simulated orders per call
+    num_orders = random.randint(1, 3)
+
+    for _ in range(num_orders):
+        # Pick a random product
+        product = random.choice(PRODUCTS)
+
+        # Get current price (use previous price or initial price)
+        current_price = previous_prices.get(product.symbol, product.initial_price)
+
+        # Generate and place simulated order
+        simulated_order = generate_simulated_order(product, current_price)
+
+        try:
+            from order import Order  # Import here to avoid circular imports
+            exchange.place_order(
+                simulated_order.product,
+                simulated_order.quantity,
+                simulated_order.side,
+                simulated_order.order_type,
+                simulated_order.limit_price,
+                Order.OrderSource.SIMULATION
+            )
+        except Exception as e:
+            logger.error(f"Failed to place simulated order: {e}")
+
+    # Trigger order matching for CLOB
+    matches = exchange.match_orders_clob() if hasattr(exchange, 'match_orders_clob') else exchange.match_orders()
+
+    # Log any matches
+    for order, fill in matches:
+        if order.source == Order.OrderSource.SIMULATION:
+            logger.info(f"Simulated order matched: {order.side.value} {fill.quantity} {fill.product} @ ${fill.price}")
+        else:
+            logger.info(f"User order matched: {order.side.value} {fill.quantity} {fill.product} @ ${fill.price}")
+
+    # Extract bid/ask from order book
+    for product in PRODUCTS:
+        symbol = product.symbol
+
+        # Get best bid (highest buy order)
+        best_bid = None
+        if symbol in exchange.buy_orders and exchange.buy_orders[symbol]:
+            active_buys = [o for o in exchange.buy_orders[symbol] if o.is_active and not o.is_filled()]
+            if active_buys:
+                best_bid = max(active_buys, key=lambda x: x.limit_price or 0).limit_price
+
+        # Get best ask (lowest sell order)
+        best_ask = None
+        if symbol in exchange.sell_orders and exchange.sell_orders[symbol]:
+            active_sells = [o for o in exchange.sell_orders[symbol] if o.is_active and not o.is_filled()]
+            if active_sells:
+                best_ask = min(active_sells, key=lambda x: x.limit_price or float('inf')).limit_price
+
+        # No synthetic prices - if no orders exist, keep as None
+        # This is more honest than showing fake tradeable prices
+
+        data[f"{symbol}_bid"] = best_bid
+        data[f"{symbol}_ask"] = best_ask
+
+        # Update previous price with midpoint (only if both bid and ask exist)
+        if best_bid is not None and best_ask is not None:
+            previous_prices[symbol] = (best_bid + best_ask) / 2
+
+    return data, matches
+
 def get_market_data_twelvedata(verbosity=1):
     """Fetch market data from Twelve Data API"""
     rate_limiter.wait_if_needed()
@@ -222,7 +334,7 @@ def get_market_data_twelvedata(verbosity=1):
         return {}
 
 
-def get_market_data(market_data_source: MarketDataSource, verbosity: int = 1) -> Dict[str, float]:
+def get_market_data(market_data_source: MarketDataSource, verbosity: int = 1, exchange=None) -> Tuple[Dict[str, float], List]:
     """Fetch market data from Twelve Data API or return random prices when in simulation mode"""
     global current_volatile_period
     logger.info(f"Fetching market data (source={market_data_source}, verbosity={verbosity})")
@@ -311,8 +423,14 @@ def get_market_data(market_data_source: MarketDataSource, verbosity: int = 1) ->
             logger.info(f"Generated prices for {symbol}: base={base_price}, bid={bid}, ask={ask}")
             previous_prices[symbol] = base_price  # Store base price (midpoint) for next iteration
 
-        return data
+        return data, []
+
+    elif market_data_source == MarketDataSource.CLOB:
+        # Use Central Limit Order Book
+        if exchange is None:
+            raise ValueError("Exchange instance required for CLOB market data mode")
+        return get_market_data_from_clob(exchange, verbosity)
 
     else:
         # Use Twelve Data API
-        return get_market_data_twelvedata(verbosity)
+        return get_market_data_twelvedata(verbosity), []

@@ -21,7 +21,7 @@ class TestMarketData(unittest.TestCase):
         Test that get_market_data with 'simulation' mode doesn't call API endpoints
         """
         with patch('twelvedata.endpoints.TimeSeriesEndpoint') as mock_ts_endpoint:
-            get_market_data(market_data_source=MarketDataSource.SIMULATION, verbosity=1)
+            _, _ = get_market_data(market_data_source=MarketDataSource.SIMULATION, verbosity=1)
             mock_ts_endpoint.assert_not_called()
 
     def test_get_market_data_simulation_mode_behavior(self):
@@ -33,13 +33,13 @@ class TestMarketData(unittest.TestCase):
         results = []
 
         # Get initial prices
-        result = get_market_data(market_data_source=MarketDataSource.SIMULATION, verbosity=1)
+        result, _ = get_market_data(market_data_source=MarketDataSource.SIMULATION, verbosity=1)
         self.assertEqual(len(result), len(PRODUCTS) * 2)  # Each instrument has bid and ask
         results.append(result)
 
         # Get updated prices for multiple iterations
         for i in range(1, num_iterations):
-            result = get_market_data(market_data_source=MarketDataSource.SIMULATION, verbosity=1)
+            result, _ = get_market_data(market_data_source=MarketDataSource.SIMULATION, verbosity=1)
             self.assertEqual(len(result), len(PRODUCTS) * 2)  # Each instrument has bid and ask
             results.append(result)
 
@@ -82,7 +82,7 @@ class TestMarketData(unittest.TestCase):
         num_iterations = 1000
 
         # Get initial prices
-        market_data = get_market_data(market_data_source=MarketDataSource.SIMULATION)
+        market_data, _ = get_market_data(market_data_source=MarketDataSource.SIMULATION)
 
         # Verify no negative prices and prices within bounds
         for symbol in market_data:
@@ -111,7 +111,7 @@ class TestMarketData(unittest.TestCase):
             max_event_magnitude=0.1)  # 10% max event size
         try:
             # Get initial prices
-            market_data = get_market_data(market_data_source=MarketDataSource.SIMULATION)
+            market_data, _ = get_market_data(market_data_source=MarketDataSource.SIMULATION)
 
             # Get initial bid price for EUR/USD
             symbol = "EUR/USD"
@@ -119,7 +119,7 @@ class TestMarketData(unittest.TestCase):
 
             # Call get_market_data multiple times to ensure we see an event
             for _ in range(100):  # Try 100 iterations
-                market_data = get_market_data(market_data_source=MarketDataSource.SIMULATION)
+                market_data, _ = get_market_data(market_data_source=MarketDataSource.SIMULATION)
                 new_bid = market_data[f"{symbol}_bid"]
                 if new_bid != initial_bid:
                     break
@@ -148,13 +148,13 @@ class TestMarketData(unittest.TestCase):
         start_time = datetime.now()
         duration = 60  # 1 minute
         volatility_factor = 2.0
-        
+
         period = VolatilePeriod(
             start_time=start_time,
             duration_seconds=duration,
             volatility_factor=volatility_factor
         )
-        
+
         self.assertEqual(period.start_time, start_time)
         self.assertEqual(period.duration_seconds, duration)
         self.assertEqual(period.volatility_factor, volatility_factor)
@@ -165,13 +165,13 @@ class TestMarketData(unittest.TestCase):
         """
         base_duration = 60  # 1 minute
         jitter = 0.2  # 20% jitter
-        
+
         # Test with positive jitter
         random.seed(42)  # For consistent results
         jittered_duration = int(base_duration * (1 + jitter * (random.random() - 0.5)))
         self.assertGreater(jittered_duration, base_duration * (1 - jitter))
         self.assertLess(jittered_duration, base_duration * (1 + jitter))
-        
+
         # Test with negative jitter
         random.seed(100)  # Different seed
         jittered_duration = int(base_duration * (1 + jitter * (random.random() - 0.5)))
@@ -185,13 +185,13 @@ class TestMarketData(unittest.TestCase):
         # Set up test configuration
         market_data_config.volatility_factor = 2.0  # 2x volatility
         market_data_config._base_event_probability = 0.1  # 10% base probability
-        
+
         # Test price volatility
         prev_price = 100.0
         std_dev = market_data_config.model_std_dev(prev_price)
         volatile_std_dev = std_dev * market_data_config.volatility_factor
         self.assertEqual(volatile_std_dev, std_dev * 2.0)
-        
+
         # Test event probability
         base_prob = market_data_config._base_event_probability
         volatile_prob = base_prob * market_data_config.volatility_factor
