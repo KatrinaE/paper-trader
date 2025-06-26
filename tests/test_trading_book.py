@@ -3,14 +3,14 @@ from unittest.mock import MagicMock
 
 from trading_book import TradingBook
 from order import Fill
-from market_data import get_market_data
+from market_data import get_market_data, MarketDataSource
 from products import PRODUCTS
 
 class TestTradingBook(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures"""
         self.trading_book = TradingBook()
-        self.market_data = get_market_data('simulation')  # Get random market data
+        self.market_data = get_market_data(MarketDataSource.SIMULATION)  # Get random market data
 
     def test_buy_and_display(self):
         """Test buying a product and verify it displays correctly in the trading book"""
@@ -69,7 +69,7 @@ class TestTradingBook(unittest.TestCase):
         self.trading_book.add_to_position(product, quantity)
 
         # Get new market data with different prices
-        new_market_data = get_market_data('simulation')
+        new_market_data = get_market_data(MarketDataSource.SIMULATION)
         new_price = new_market_data.get("AAPL_bid", 100.0)
 
         # Verify position value updates with new price

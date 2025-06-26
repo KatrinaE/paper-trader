@@ -6,6 +6,7 @@ from products import PRODUCTS, Product
 from order import Order, Fill
 from trading_book import TradingBook
 from user_actions import BUY, SELL, _add_product, _remove_product, _trade_product
+from market_data import MarketDataSource
 
 # Mock product for testing
 MOCK_PRODUCT = Product(
@@ -67,7 +68,7 @@ class TestTradeProduct(unittest.TestCase):
 
         # Place limit order
         trading_book, order_id = _trade_product(
-            market_data_source="simulation",
+            market_data_source=MarketDataSource.SIMULATION,
             exchange=exchange,
             trading_book=trading_book,
             product=MOCK_PRODUCT,
@@ -91,7 +92,7 @@ class TestTradeProduct(unittest.TestCase):
         # Verify no immediate fill since limit price is below market price
         assert exchange.match_orders() == []
     def test_buy_forex(self):
-        market_data_source = 'simulation'
+        market_data_source = MarketDataSource.SIMULATION
         trading_book = TradingBook()
         market_data = {
             "AAPL_ask": 150.0,
@@ -137,7 +138,7 @@ class TestTradeProduct(unittest.TestCase):
         self.assertNotEqual(fill.price, None)
 
     def test_sell_forex(self):
-        market_data_source = 'simulation'
+        market_data_source = MarketDataSource.SIMULATION
         # Get a Product instance instead of using string symbol
         product = next(p for p in PRODUCTS if p.symbol == 'AAPL')
         quantity_fixture = 5

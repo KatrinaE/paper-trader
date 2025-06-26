@@ -1,13 +1,20 @@
-from typing import Dict, List, Optional, Tuple, NamedTuple
+from typing import Dict, List, Optional, Tuple, NamedTuple, Literal
 from datetime import datetime, timedelta
 import logging
 import random
 import time
+import os
 from enum import Enum
 
+from twelvedata import TDClient
 from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
 from products import PRODUCTS, Product
 from rate_limiter import RateLimiter
+
+# Market data source enum
+class MarketDataSource(Enum):
+    SIMULATION = 'simulation'
+    TWELVEDATA = 'twelvedata'
 
 # Named tuple for volatile periods
 VolatilePeriod = NamedTuple('VolatilePeriod', [
@@ -153,14 +160,17 @@ previous_prices = {
 for product, price in previous_prices.items():
     logger.info(f"Initialized previous price for {product}: {price}")
 
-def get_market_data_twelvedata():
+def get_market_data_twelvedata(verbosity=1):
+    """Fetch market data from Twelve Data API"""
     rate_limiter.wait_if_needed()
     try:
-        if config is None:
-            config = market_data_config
-            logger.debug("Using default market data configuration")
-        else:
-            logger.debug("Using custom market data configuration")
+        # Initialize API client
+        API_KEY = os.getenv("TWELVEDATA_API_KEY")
+        if not API_KEY:
+            logger.error("TWELVEDATA_API_KEY not found in environment variables")
+            return {}
+
+        client = TDClient(apikey=API_KEY)
 
         usage_endpoint = APIUsageEndpoint(client)
         usage_data = usage_endpoint.get().as_json()
@@ -212,12 +222,12 @@ def get_market_data_twelvedata():
         return {}
 
 
-def get_market_data(market_data_source='twelvedata', verbosity=1):
+def get_market_data(market_data_source: MarketDataSource, verbosity: int = 1) -> Dict[str, float]:
     """Fetch market data from Twelve Data API or return random prices when in simulation mode"""
     global current_volatile_period
     logger.info(f"Fetching market data (source={market_data_source}, verbosity={verbosity})")
 
-    if market_data_source == 'simulation':
+    if market_data_source == MarketDataSource.SIMULATION:
         # Generate probabilistic prices for all products
         data = {}
 
@@ -303,4 +313,6 @@ def get_market_data(market_data_source='twelvedata', verbosity=1):
 
         return data
 
-    get_market_data_from_twelvedata()
+    else:
+        # Use Twelve Data API
+        return get_market_data_twelvedata(verbosity)

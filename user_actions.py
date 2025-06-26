@@ -4,11 +4,12 @@ from rich.prompt import Prompt
 from products import PRODUCTS, Product
 from order import Order, Fill
 
-# Configure user actions logger
-logger = logging.getLogger('user_actions')
-from market_data import get_market_data, market_data_config
+from market_data import get_market_data, MarketDataSource, market_data_config
 from exchange import Exchange
 from trading_book import TradingBook
+
+# Configure user actions logger
+logger = logging.getLogger('user_actions')
 BUY = 'buy'
 SELL = 'sell'
 
@@ -184,7 +185,7 @@ def _trade_product(market_data_source, exchange, trading_book, product, quantity
     logger.info(f"Starting _trade_product for {product} {side} {quantity} at {order_type} order")
 
     # Get current market data
-    market_data = get_market_data(market_data_source)
+    market_data = get_market_data(market_data_source, verbosity)
 
     # Create order
     order = Order(
