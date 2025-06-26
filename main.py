@@ -28,7 +28,7 @@ from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
 
 # Local imports
 from products import PRODUCTS
-from market_data import get_market_data
+from market_data import get_market_data, MarketDataSource
 from exchange import Exchange
 from order import Order, Fill
 from trading_book import TradingBook
@@ -238,7 +238,7 @@ def update_market_data_continuously(live, trading_book, exchange, market_data_so
             logger.error(f"Error updating market data: {str(e)}")
         time.sleep(1)  # Update every second
 
-def main(market_data_source='twelvedata', verbosity=1):
+def main(market_data_source: MarketDataSource, verbosity: int = 1):
     """Main application loop"""
     # Initialize trading book and exchange
     trading_book = TradingBook()
@@ -250,7 +250,7 @@ def main(market_data_source='twelvedata', verbosity=1):
     renderable = create_layout(market_data, trading_book)
 
     # Initialize API client if needed
-    if market_data_source == 'twelvedata':
+    if market_data_source == MarketDataSource.TWELVEDATA:
         API_KEY = os.getenv("API_KEY")
         client = TDClient(apikey=API_KEY)
 
@@ -301,6 +301,9 @@ if __name__ == "__main__":
                         help='Market data source (twelvedata or simulation)')
     args = parser.parse_args()
 
+    # Convert market data source string to enum
+    market_data_source = MarketDataSource.TWELVEDATA if args.market_data_source == 'twelvedata' else MarketDataSource.SIMULATION
+
     # Set verbosity level (0-2)
     verbosity = args.verbose + 1
 
@@ -310,6 +313,6 @@ if __name__ == "__main__":
         console.print(f"[cyan]Verbosity level: {verbosity}[/cyan]")
 
     try:
-        main(args.market_data_source, verbosity)
+        main(market_data_source, verbosity)
     except KeyboardInterrupt:
         console.print("\n[green]Exiting...[/green]")

@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple, NamedTuple
+from typing import Dict, List, Optional, Tuple, NamedTuple, Literal
 from datetime import datetime, timedelta
 import logging
 import random
@@ -10,6 +10,11 @@ from twelvedata import TDClient
 from twelvedata.endpoints import TimeSeriesEndpoint, APIUsageEndpoint
 from products import PRODUCTS, Product
 from rate_limiter import RateLimiter
+
+# Market data source enum
+class MarketDataSource(Enum):
+    SIMULATION = 'simulation'
+    TWELVEDATA = 'twelvedata'
 
 # Named tuple for volatile periods
 VolatilePeriod = NamedTuple('VolatilePeriod', [
@@ -217,12 +222,12 @@ def get_market_data_twelvedata(verbosity=1):
         return {}
 
 
-def get_market_data(market_data_source, verbosity=1):
+def get_market_data(market_data_source: MarketDataSource, verbosity: int = 1) -> Dict[str, float]:
     """Fetch market data from Twelve Data API or return random prices when in simulation mode"""
     global current_volatile_period
     logger.info(f"Fetching market data (source={market_data_source}, verbosity={verbosity})")
 
-    if market_data_source == 'simulation':
+    if market_data_source == MarketDataSource.SIMULATION:
         # Generate probabilistic prices for all products
         data = {}
 
