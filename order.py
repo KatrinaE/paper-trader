@@ -15,12 +15,17 @@ class Order:
         BUY = "buy"
         SELL = "sell"
 
+    class OrderSource(Enum):
+        USER = "user"
+        SIMULATION = "simulation"
+
     order_id: int
     product: str
     quantity: int
     side: OrderSide
     order_type: OrderType
     limit_price: Optional[float] = None  # Only used for LIMIT orders
+    source: OrderSource = OrderSource.USER
     timestamp: datetime = datetime.now()
     filled_quantity: int = 0
     is_active: bool = True
