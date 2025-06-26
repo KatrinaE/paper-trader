@@ -143,8 +143,8 @@ def create_layout(market_data, trading_book):
     orders_table.add_column("Quantity", style="yellow")
     orders_table.add_column("Limit Price", style="green")
 
-    # Add active orders to orders table
-    active_orders = trading_book.get_active_orders()
+    # Add active orders to orders table (only show user orders, not simulated ones)
+    active_orders = trading_book.get_user_active_orders()
     formatted_orders = format_active_orders(active_orders)
     for order in formatted_orders:
         orders_table.add_row(

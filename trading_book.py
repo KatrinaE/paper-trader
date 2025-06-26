@@ -108,3 +108,7 @@ class TradingBook:
     def get_active_orders(self) -> Dict[int, Order]:
         """Get all active orders"""
         return self.exchange.get_active_orders()
+
+    def get_user_active_orders(self) -> Dict[int, Order]:
+        """Get only user active orders (exclude simulated orders)"""
+        return self.exchange.get_user_active_orders()
