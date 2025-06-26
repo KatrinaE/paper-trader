@@ -93,15 +93,17 @@ class TradingBook:
     def process_fills(self, matches: List[Tuple[Order, Fill]]) -> List[Tuple[Order, Fill]]:
         """Process fills from provided matches"""
         for order, fill in matches:
-            if order.is_buy():
-                self.cash -= fill.quantity * fill.price
-                self.add_to_position(fill.product, fill.quantity)
-            else:  # SELL
-                self.cash += fill.quantity * fill.price
-                self.remove_from_position(fill.product, fill.quantity)
+            # Only process fills for user orders (ignore simulated order fills)
+            if order.source == Order.OrderSource.USER:
+                if order.is_buy():
+                    self.cash -= fill.quantity * fill.price
+                    self.add_to_position(fill.product, fill.quantity)
+                else:  # SELL
+                    self.cash += fill.quantity * fill.price
+                    self.remove_from_position(fill.product, fill.quantity)
 
-            self.history.append(fill)
-            logger.info(f"Filled order {order.order_id}: {fill}")
+                self.history.append(fill)
+                logger.info(f"Processed user fill for order {order.order_id}: {fill}")
 
         return matches
 

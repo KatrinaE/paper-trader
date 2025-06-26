@@ -299,11 +299,16 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase verbosity level (-v for basic, -vv for detailed)')
     parser.add_argument('-m', '--market-data-source', default='simulation',
-                        help='Market data source (twelvedata or simulation)')
+                        help='Market data source (twelvedata, simulation, or clob)')
     args = parser.parse_args()
 
     # Convert market data source string to enum
-    market_data_source = MarketDataSource.TWELVEDATA if args.market_data_source == 'twelvedata' else MarketDataSource.SIMULATION
+    if args.market_data_source == 'twelvedata':
+        market_data_source = MarketDataSource.TWELVEDATA
+    elif args.market_data_source == 'clob':
+        market_data_source = MarketDataSource.CLOB
+    else:
+        market_data_source = MarketDataSource.SIMULATION
 
     # Set verbosity level (0-2)
     verbosity = args.verbose + 1
