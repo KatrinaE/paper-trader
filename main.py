@@ -166,8 +166,9 @@ def create_layout(market_data, trading_book):
 
     # Add fills to fills table (show most recent fills first)
     recent_fills = trading_book.history[-10:] if len(trading_book.history) > 10 else trading_book.history
-    recent_fills.reverse()  # Show most recent first
-    for fill in recent_fills:
+    # Create a reversed copy without modifying the original list
+    recent_fills_reversed = list(reversed(recent_fills))
+    for fill in recent_fills_reversed:
         fills_table.add_row(
             str(fill.order_id),
             fill.product,
