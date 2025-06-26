@@ -120,7 +120,10 @@ def buy_product(trading_book, exchange, market_data_source, console, verbosity):
     try:
         trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, Order.OrderSide.BUY, verbosity, limit_price=limit_price, order_type=order_type)
         logger.info(f"Bought {quantity} of {product.symbol} at {order_type} order")
-        console.print(f"[green]Bought {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
+        if fill.quantity > 0:
+            console.print(f"[green]Bought {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
+        else:
+            console.print(f"[yellow]Order placed for {quantity} {product.symbol} - waiting for fill[/yellow]")
         return trading_book
     except Exception as e:
         console.print(f"[red]Error buying: {str(e)}[/red]")
@@ -175,7 +178,10 @@ def sell_product(trading_book, exchange, market_data_source, console, verbosity)
     try:
         trading_book, fill = _trade_product(market_data_source, exchange, trading_book, product, quantity, Order.OrderSide.SELL, verbosity, limit_price=limit_price, order_type=order_type)
         logger.info(f"Sold {quantity} of {product.symbol} at {order_type} order")
-        console.print(f"[green]Sold {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
+        if fill.quantity > 0:
+            console.print(f"[green]Sold {fill.quantity} of {fill.product} at ${fill.price:.2f}[/green]")
+        else:
+            console.print(f"[yellow]Order placed for {quantity} {product.symbol} - waiting for fill[/yellow]")
         return trading_book
     except Exception as e:
         console.print(f"[red]Error selling: {str(e)}[/red]")
