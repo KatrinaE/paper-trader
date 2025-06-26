@@ -127,7 +127,7 @@ class TestTradeProduct(unittest.TestCase):
         trading_book_fixture = TradingBook()
 
         # Do not check fill price because it's set nondeterministically by market data
-        fill_fixture = Fill(product.symbol, quantity, side, None)
+        fill_fixture = Fill(product.symbol, quantity, side, None, 1)
 
         fill = exchange.execute_order(order)
         trading_book.cash -= fill.quantity * fill.price
@@ -167,7 +167,7 @@ class TestTradeProduct(unittest.TestCase):
         trading_book_fixture = TradingBook()
 
         # Do not check fill price because it's set nondeterministically by market data
-        fill_fixture = Fill(product.symbol, quantity, side, None)
+        fill_fixture = Fill(product.symbol, quantity, side, None, 1)
 
         order_id = exchange.place_order(
             product=product.symbol,

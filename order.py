@@ -54,9 +54,10 @@ class Order:
 
 class Fill:
     """Represents the execution of an order"""
-    def __init__(self, product: str, quantity: int, side: Order.OrderSide, price: float):
+    def __init__(self, product: str, quantity: int, side: Order.OrderSide, price: float, order_id: int):
         self.product = product
         self.quantity = quantity
         self.side = side
         self.price = price
+        self.order_id = order_id
         self.timestamp = datetime.now()

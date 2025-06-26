@@ -57,18 +57,21 @@ class Exchange:
         self.orders[order_id] = order
 
         # Add to appropriate order book
+        logger.info(f"Adding {side.value} order for product '{product}', order_id: {order_id}")
         if side == Order.OrderSide.BUY:
             if product not in self.buy_orders:
                 self.buy_orders[product] = []
             self.buy_orders[product].append(order)
             # Sort buy orders by price (highest first) and then by timestamp
             self.buy_orders[product].sort(key=lambda x: (-x.limit_price if x.limit_price else float('inf'), x.timestamp))
+            logger.info(f"Buy orders for {product}: {[f'ID{o.order_id}({o.limit_price})' for o in self.buy_orders[product]]}")
         else:  # SELL
             if product not in self.sell_orders:
                 self.sell_orders[product] = []
             self.sell_orders[product].append(order)
             # Sort sell orders by price (lowest first) and then by timestamp
             self.sell_orders[product].sort(key=lambda x: (x.limit_price if x.limit_price else 0, x.timestamp))
+            logger.info(f"Sell orders for {product}: {[f'ID{o.order_id}({o.limit_price})' for o in self.sell_orders[product]]}")
 
         return order_id
 
@@ -147,14 +150,21 @@ class Exchange:
         matches = []
         MAX_FILL_QUANTITY = 100
 
+        logger.info(f"Matching orders. Market data keys: {list(self.market_data.keys())}")
+        logger.info(f"Buy orders keys: {list(self.buy_orders.keys())}")
+        logger.info(f"Sell orders keys: {list(self.sell_orders.keys())}")
+
         for product in self.market_data.keys():
             if product.endswith('_bid'):
                 symbol = product[:-4]
                 bid_price = self.market_data[product]
                 ask_price = self.market_data[f"{symbol}_ask"]
+                
+                logger.info(f"Processing symbol: {symbol}, bid: {bid_price}, ask: {ask_price}")
 
                 # Match buy orders (market and limit)
                 if symbol in self.buy_orders:
+                    logger.info(f"Found {len(self.buy_orders[symbol])} buy orders for {symbol}")
                     for order in self.buy_orders[symbol]:
                         if not order.is_active or order.is_filled():
                             continue
@@ -163,7 +173,7 @@ class Exchange:
                         # Limit orders only execute if ask price <= limit price
                         if (order.is_market() or (order.limit_price is not None and ask_price <= order.limit_price)) and order.remaining_quantity() > 0:
                             fill_quantity = min(order.remaining_quantity(), MAX_FILL_QUANTITY)
-                            fill = Fill(symbol, fill_quantity, order.side, ask_price)
+                            fill = Fill(symbol, fill_quantity, order.side, ask_price, order.order_id)
                             matches.append((order, fill))
 
                             order.filled_quantity += fill_quantity
@@ -180,7 +190,7 @@ class Exchange:
                         # Limit orders only execute if limit price <= bid price
                         if (order.is_market() or (order.limit_price is not None and order.limit_price <= bid_price)) and order.remaining_quantity() > 0:
                             fill_quantity = min(order.remaining_quantity(), MAX_FILL_QUANTITY)
-                            fill = Fill(symbol, fill_quantity, order.side, bid_price)
+                            fill = Fill(symbol, fill_quantity, order.side, bid_price, order.order_id)
                             matches.append((order, fill))
 
                             order.filled_quantity += fill_quantity
@@ -224,8 +234,8 @@ class Exchange:
                     fill_quantity = min(best_buy.remaining_quantity(), best_sell.remaining_quantity())
 
                     # Create fills for both orders
-                    buy_fill = Fill(symbol, fill_quantity, best_buy.side, match_price)
-                    sell_fill = Fill(symbol, fill_quantity, best_sell.side, match_price)
+                    buy_fill = Fill(symbol, fill_quantity, best_buy.side, match_price, best_buy.order_id)
+                    sell_fill = Fill(symbol, fill_quantity, best_sell.side, match_price, best_sell.order_id)
 
                     # Update order filled quantities
                     best_buy.filled_quantity += fill_quantity
