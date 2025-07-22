@@ -125,8 +125,13 @@ def buy_product(trading_book, exchange, market_data_source, console, verbosity):
         else:
             console.print(f"[yellow]Order placed for {quantity} {product.symbol} - waiting for fill[/yellow]")
         return trading_book
+    except ValueError as e:
+        console.print(f"[red]Error: {str(e)}[/red]")
+        return trading_book
     except Exception as e:
-        console.print(f"[red]Error buying: {str(e)}[/red]")
+        logger.error(f"Unexpected error in buy_product: {str(e)}")
+        console.print(f"[red]Unexpected error: {str(e)}[/red]")
+        return trading_book
 
 def sell_product(trading_book, exchange, market_data_source, console, verbosity):
     """Sell a product (product) and update trading book."""
@@ -183,8 +188,13 @@ def sell_product(trading_book, exchange, market_data_source, console, verbosity)
         else:
             console.print(f"[yellow]Order placed for {quantity} {product.symbol} - waiting for fill[/yellow]")
         return trading_book
+    except ValueError as e:
+        console.print(f"[red]Error: {str(e)}[/red]")
+        return trading_book
     except Exception as e:
-        console.print(f"[red]Error selling: {str(e)}[/red]")
+        logger.error(f"Unexpected error in sell_product: {str(e)}")
+        console.print(f"[red]Unexpected error: {str(e)}[/red]")
+        return trading_book
 
 def _trade_product(market_data_source, exchange, trading_book, product, quantity, side: Order.OrderSide, verbosity, limit_price=None, order_type='market'):
     """Trade a product and update trading book."""
