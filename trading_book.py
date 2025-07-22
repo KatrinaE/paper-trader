@@ -191,11 +191,7 @@ class TradingBook:
         logger.info(f"Removing {quantity} {product} from position at {price}")
         position = self.get_position_object(product)
         
-        # Check if we have enough shares (considering both long and potential short positions)
-        if position.quantity < quantity:
-            logger.error(f"Insufficient shares to sell {quantity} of {product}")
-            raise ValueError(f"Insufficient shares to sell {quantity} of {product}")
-        
+        # FIFO logic in handle_sell() will handle both closing longs and creating shorts
         realized_pnl = position.handle_sell(quantity, price)
         logger.info(f"Realized P&L from sell: ${realized_pnl:.2f}")
 
@@ -256,10 +252,7 @@ class TradingBook:
             if self.cash < quantity * (limit_price if limit_price else self.exchange.market_data.get(f"{product}_ask", 0.0)):
                 logger.error(f"Insufficient cash to place order for {quantity} {product}")
                 raise ValueError("Insufficient cash")
-        else:  # SELL
-            if self.get_position(product) < quantity:
-                logger.error(f"Insufficient shares to place order for {quantity} {product}")
-                raise ValueError("Insufficient shares")
+        # Note: SELL orders (including short selling) are allowed without position checks in paper trading
 
         # Place the order on the exchange
         return self.exchange.place_order(product, quantity, side, order_type, limit_price)
