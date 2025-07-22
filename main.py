@@ -148,6 +148,7 @@ def create_layout(market_data, trading_book):
     # Create fills table
     fills_table = Table(show_header=True, header_style="bold")
     fills_table.add_column("Order ID", style="cyan")
+    fills_table.add_column("Side", style="yellow")
     fills_table.add_column("Product", style="cyan")
     fills_table.add_column("Quantity", style="yellow")
     fills_table.add_column("Price", style="green")
@@ -171,8 +172,14 @@ def create_layout(market_data, trading_book):
     # Create a reversed copy without modifying the original list
     recent_fills_reversed = list(reversed(recent_fills))
     for fill in recent_fills_reversed:
+        # Color-code the side: green for BUY, red for SELL
+        side_str = fill.side.value.upper()
+        side_color = "green" if fill.side.value == "buy" else "red"
+        side_display = f"[{side_color}]{side_str}[/{side_color}]"
+        
         fills_table.add_row(
             str(fill.order_id),
+            side_display,
             fill.product,
             str(fill.quantity),
             f"${fill.price:.2f}",
