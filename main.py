@@ -122,7 +122,9 @@ def create_layout(market_data, trading_book):
     trading_table = Table(show_header=True, header_style="bold")
     trading_table.add_column("Product", style="cyan", no_wrap=True)
     trading_table.add_column("Quantity", style="yellow")
+    trading_table.add_column("Avg Cost", style="blue")
     trading_table.add_column("Value", style="green")
+    trading_table.add_column("Unrealized P&L", style="magenta")
 
     # Create controls panel
     controls_table = Table(show_header=False)
@@ -201,18 +203,41 @@ def create_layout(market_data, trading_book):
         bid = market_data.get(f"{product}_bid", 0.0)
         position_prices[product] = float(bid) if bid != 'N/A' else 0.0
 
-    for product, quantity in trading_book.positions.items():
-        bid = position_prices.get(product, 0.0)
-        value = quantity * bid
-        trading_table.add_row(
-            product,
-            str(quantity),
-            f"${value:.2f}"
-        )
+    # Add individual positions
+    for product, position in trading_book.positions.items():
+        if position.quantity != 0:  # Only show non-zero positions
+            bid = position_prices.get(product, 0.0)
+            value = position.quantity * bid
+            unrealized_pnl = position.unrealized_pnl(bid)
+            
+            # Color unrealized P&L: green for profit, red for loss
+            pnl_color = "green" if unrealized_pnl >= 0 else "red"
+            pnl_str = f"[{pnl_color}]${unrealized_pnl:+.2f}[/{pnl_color}]"
+            
+            trading_table.add_row(
+                product,
+                str(position.quantity),
+                f"${position.average_cost:.2f}" if position.average_cost > 0 else "-",
+                f"${value:.2f}",
+                pnl_str
+            )
 
-    # Add cash balance
-    trading_table.add_row("Cash", "-", f"${trading_book.cash:.2f}")
-    trading_table.add_row("Total Value", "-", f"${total_value:.2f}")
+    # Add summary rows
+    realized_pnl = trading_book.get_total_realized_pnl()
+    unrealized_pnl = trading_book.get_total_unrealized_pnl(market_data)
+    total_pnl = trading_book.get_total_pnl(market_data)
+    
+    # Color P&L values
+    realized_color = "green" if realized_pnl >= 0 else "red"
+    unrealized_color = "green" if unrealized_pnl >= 0 else "red" 
+    total_color = "green" if total_pnl >= 0 else "red"
+    
+    trading_table.add_row("", "", "", "", "")  # Separator
+    trading_table.add_row("Cash", "-", "-", f"${trading_book.cash:.2f}", "-")
+    trading_table.add_row("Total Value", "-", "-", f"${total_value:.2f}", "-")
+    trading_table.add_row("Realized P&L", "-", "-", "-", f"[{realized_color}]${realized_pnl:+.2f}[/{realized_color}]")
+    trading_table.add_row("Unrealized P&L", "-", "-", "-", f"[{unrealized_color}]${unrealized_pnl:+.2f}[/{unrealized_color}]") 
+    trading_table.add_row("Total P&L", "-", "-", "-", f"[{total_color}]${total_pnl:+.2f}[/{total_color}]")
 
     # Create layout with rows
     layout = Layout()
